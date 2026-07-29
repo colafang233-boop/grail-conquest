@@ -10,9 +10,15 @@ import {
   processCommand,
 } from "../src";
 
+function createEncounterState() {
+  const started = processCommand(createSchoolBattleState(), { type: "scenario.begin_encounter" });
+  if (!started.ok) throw new Error(started.error.message);
+  return started.state;
+}
+
 describe("Master–Servant contracts", () => {
   it("lets a nearby Servant intercept an attack against the Master", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const threatened = {
       ...initial,
       battle: {
@@ -44,7 +50,7 @@ describe("Master–Servant contracts", () => {
   });
 
   it("allows the Master to transfer mana within contract range", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const lowMana = {
       ...initial,
       battle: {
@@ -76,7 +82,7 @@ describe("Master–Servant contracts", () => {
   });
 
   it("charges upkeep at a new round and applies the low-mana damage penalty", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const beforeUpkeep = {
       ...initial,
       battle: {
@@ -109,7 +115,7 @@ describe("Master–Servant contracts", () => {
   });
 
   it("recalls the Servant beside the Master with one command seal", () => {
-    const result = processCommand(createSchoolBattleState(), {
+    const result = processCommand(createEncounterState(), {
       type: "contract.use_command_seal",
       battleId: SCHOOL_BATTLE_ID,
       factionId: TOHSAKA_FACTION_ID,
@@ -127,7 +133,7 @@ describe("Master–Servant contracts", () => {
   });
 
   it("grants Archer a fresh turn through an extra-turn command seal", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const spent = {
       ...initial,
       battle: {
@@ -162,7 +168,7 @@ describe("Master–Servant contracts", () => {
   });
 
   it("uses Reject Death to survive one lethal hit", () => {
-    const prepared = processCommand(createSchoolBattleState(), {
+    const prepared = processCommand(createEncounterState(), {
       type: "contract.use_command_seal",
       battleId: SCHOOL_BATTLE_ID,
       factionId: TOHSAKA_FACTION_ID,
