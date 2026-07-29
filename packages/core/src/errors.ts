@@ -35,7 +35,16 @@ export type DomainErrorCode =
   | "scenario_not_active"
   | "scenario_already_started"
   | "scenario_completed"
-  | "retreat_unavailable";
+  | "retreat_unavailable"
+  | "strategy_not_active"
+  | "strategy_action_points_exhausted"
+  | "strategy_region_not_connected"
+  | "strategy_region_not_discovered"
+  | "strategy_region_already_investigated"
+  | "strategy_leyline_unavailable"
+  | "strategy_leyline_already_controlled"
+  | "strategy_rest_unavailable"
+  | "strategy_encounter_unavailable";
 
 export interface DomainError {
   readonly code: DomainErrorCode;
