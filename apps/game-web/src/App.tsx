@@ -10,14 +10,14 @@ export default function App() {
             <p className="eyebrow">第 1 夜 · 冬木市学园</p>
             <h1>Grail Conquest</h1>
           </div>
-          <div className="prototype-badge">COMBAT SLICE 0.2</div>
+          <div className="prototype-badge">CONTRACT SLICE 0.3</div>
         </header>
 
         <div className="mission-strip">
           <span className="mission-dot" />
           <div>
             <strong>教学目标</strong>
-            <p>移动后切换攻击模式，点击红色高亮敌人；近战目标会自动反击。</p>
+            <p>保持 Master 与 Servant 的契约距离，利用护卫、供魔和三划令咒改变战局。</p>
           </div>
         </div>
 
