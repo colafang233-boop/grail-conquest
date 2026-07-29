@@ -1,0 +1,42 @@
+import { hexDistance } from "./hex";
+import type { BattleState, BattleUnitState } from "./state";
+import type { UnitId } from "./ids";
+
+export function calculateDamage(
+  attacker: BattleUnitState,
+  target: BattleUnitState,
+): number {
+  return Math.max(1, attacker.attackPower - target.defense);
+}
+
+export function isAttackInRange(
+  attacker: BattleUnitState,
+  target: BattleUnitState,
+): boolean {
+  return hexDistance(attacker.position, target.position) <= attacker.attackRange;
+}
+
+export function canCounterattack(
+  reactor: BattleUnitState,
+  target: BattleUnitState,
+): boolean {
+  return (
+    !reactor.defeated &&
+    reactor.reactionAvailable &&
+    hexDistance(reactor.position, target.position) <= reactor.counterRange
+  );
+}
+
+export function findLegalAttackTargets(
+  battle: BattleState,
+  attackerId: UnitId,
+): readonly BattleUnitState[] {
+  const attacker = battle.units[attackerId];
+  if (!attacker || attacker.defeated || !attacker.mainActionAvailable) return [];
+
+  return Object.values(battle.units).filter(target =>
+    !target.defeated &&
+    target.factionId !== attacker.factionId &&
+    isAttackInRange(attacker, target),
+  );
+}

@@ -1,5 +1,6 @@
 export * from "./apply-event";
 export * from "./commands";
+export * from "./combat";
 export * from "./errors";
 export * from "./events";
 export * from "./execute-command";

@@ -22,6 +22,13 @@ export interface BattleUnitState {
   readonly maxMana: number;
   readonly movement: number;
   readonly remainingMovement: number;
+  readonly attackPower: number;
+  readonly defense: number;
+  readonly attackRange: number;
+  readonly counterRange: number;
+  readonly mainActionAvailable: boolean;
+  readonly reactionAvailable: boolean;
+  readonly defeated: boolean;
 }
 
 export interface BattleState {

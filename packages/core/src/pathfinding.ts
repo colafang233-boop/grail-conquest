@@ -26,7 +26,7 @@ export function findReachableHexes(
   const startKey = hexKey(unit.position);
   const occupied = new Set(
     Object.values(battle.units)
-      .filter(candidate => candidate.id !== unitId)
+      .filter(candidate => candidate.id !== unitId && !candidate.defeated)
       .map(candidate => hexKey(candidate.position)),
   );
 

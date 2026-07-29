@@ -12,6 +12,7 @@ The first vertical slice deliberately uses placeholder shapes and focuses on arc
 - React information panels
 - Phaser battlefield rendering and animation
 - Turn advancement between Archer, Lancer, and a Master placeholder
+- Deterministic attacks, damage, adjacent counterattacks, and unit defeat
 - Vitest coverage for movement, blocking, and turn progression
 - GitHub Actions CI and GitHub Pages deployment
 

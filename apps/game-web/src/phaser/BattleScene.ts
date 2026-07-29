@@ -3,6 +3,7 @@ import {
   ARCHER_UNIT_ID,
   LANCER_UNIT_ID,
   RIN_UNIT_ID,
+  findLegalAttackTargets,
   findReachableHexes,
   hexKey,
   type BattleUnitState,
@@ -11,6 +12,7 @@ import {
   type UnitId,
 } from "@grail/core";
 import { gameEngine } from "../game-engine";
+import { interactionStore, type InteractionMode } from "../interaction-store";
 import { createHexPoints, hexToPixel } from "./hex-layout";
 import { PresentationQueue } from "./PresentationQueue";
 
@@ -27,7 +29,8 @@ export class BattleScene extends Phaser.Scene {
   private readonly tileViews = new Map<string, Phaser.GameObjects.Polygon>();
   private readonly unitViews = new Map<UnitId, UnitView>();
   private readonly queue = new PresentationQueue(event => this.presentEvent(event));
-  private unsubscribe?: () => void;
+  private unsubscribeGame?: () => void;
+  private unsubscribeInteraction?: () => void;
 
   public constructor() {
     super("battle");
@@ -36,16 +39,23 @@ export class BattleScene extends Phaser.Scene {
   public create(): void {
     this.drawBattlefield();
     this.drawUnits();
-    this.refreshReachableTiles();
+    this.refreshInteractionHighlights();
 
-    this.unsubscribe = gameEngine.subscribe(() => {
+    this.unsubscribeGame = gameEngine.subscribe(() => {
       const snapshot = gameEngine.getSnapshot();
       this.queue.enqueue(snapshot.lastEvents);
-      this.refreshReachableTiles();
-      this.refreshActiveUnitMarkers();
+      this.refreshInteractionHighlights();
+      this.refreshUnitViews();
     });
 
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.());
+    this.unsubscribeInteraction = interactionStore.subscribe(() => {
+      this.refreshInteractionHighlights();
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.unsubscribeGame?.();
+      this.unsubscribeInteraction?.();
+    });
   }
 
   private drawBattlefield(): void {
@@ -69,11 +79,11 @@ export class BattleScene extends Phaser.Scene {
       if (!tile.blocked) {
         polygon.setInteractive({ useHandCursor: true });
         polygon.on(Phaser.Input.Events.POINTER_OVER, () => {
-          polygon.setStrokeStyle(3, 0xd1b06b, 1);
+          if (interactionStore.getSnapshot() === "move") {
+            polygon.setStrokeStyle(3, 0xd1b06b, 1);
+          }
         });
-        polygon.on(Phaser.Input.Events.POINTER_OUT, () => {
-          this.refreshReachableTiles();
-        });
+        polygon.on(Phaser.Input.Events.POINTER_OUT, () => this.refreshInteractionHighlights());
         polygon.on(Phaser.Input.Events.POINTER_DOWN, () => this.requestMove(tile.coord));
       }
     }
@@ -87,6 +97,8 @@ export class BattleScene extends Phaser.Scene {
       const container = this.add.container(pixel.x, pixel.y);
       const marker = this.add.circle(0, 0, 21, this.unitColor(unit));
       marker.setStrokeStyle(3, 0xefe3c7, 1);
+      marker.setInteractive({ useHandCursor: true });
+      marker.on(Phaser.Input.Events.POINTER_DOWN, () => this.requestAttack(unit.id));
 
       const sigil = this.add
         .text(0, -1, unit.role === "master" ? "M" : unit.id === ARCHER_UNIT_ID ? "A" : "L", {
@@ -111,10 +123,11 @@ export class BattleScene extends Phaser.Scene {
       this.unitViews.set(unit.id, { container, marker });
     }
 
-    this.refreshActiveUnitMarkers();
+    this.refreshUnitViews();
   }
 
   private requestMove(destination: HexCoord): void {
+    if (interactionStore.getSnapshot() !== "move") return;
     const battle = gameEngine.getSnapshot().state.battle;
     gameEngine.dispatch({
       type: "battle.move_unit",
@@ -124,30 +137,56 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  private refreshReachableTiles(): void {
+  private requestAttack(targetId: UnitId): void {
+    if (interactionStore.getSnapshot() !== "attack") return;
     const battle = gameEngine.getSnapshot().state.battle;
-    const reachable = findReachableHexes(battle, battle.activeUnitId);
+    const result = gameEngine.dispatch({
+      type: "battle.attack_unit",
+      battleId: battle.id,
+      attackerId: battle.activeUnitId,
+      targetId,
+    });
+
+    if (result.ok) interactionStore.setMode("move");
+  }
+
+  private refreshInteractionHighlights(): void {
+    const snapshot = gameEngine.getSnapshot();
+    const battle = snapshot.state.battle;
+    const mode: InteractionMode = interactionStore.getSnapshot();
+    const reachable = mode === "move" ? findReachableHexes(battle, battle.activeUnitId) : {};
+    const targets = new Set(
+      mode === "attack"
+        ? findLegalAttackTargets(battle, battle.activeUnitId).map(unit => unit.id)
+        : [],
+    );
 
     for (const [key, polygon] of this.tileViews) {
       const tile = battle.tiles[key];
       if (!tile) continue;
 
-      if (tile.blocked) {
-        polygon.setStrokeStyle(1.5, 0x3e4655, 0.75);
-      } else if (reachable[key]) {
-        polygon.setStrokeStyle(2.5, 0x73a7b8, 0.95);
-      } else {
-        polygon.setStrokeStyle(1.5, 0x526277, 0.75);
-      }
+      if (tile.blocked) polygon.setStrokeStyle(1.5, 0x3e4655, 0.75);
+      else if (reachable[key]) polygon.setStrokeStyle(2.5, 0x73a7b8, 0.95);
+      else polygon.setStrokeStyle(1.5, 0x526277, 0.75);
+    }
+
+    for (const [unitId, view] of this.unitViews) {
+      if (targets.has(unitId)) view.marker.setStrokeStyle(4, 0xe46e78, 1);
+      else if (unitId === battle.activeUnitId) view.marker.setStrokeStyle(4, 0xf4c76a, 1);
+      else view.marker.setStrokeStyle(3, 0xefe3c7, 1);
     }
   }
 
-  private refreshActiveUnitMarkers(): void {
-    const activeUnitId = gameEngine.getSnapshot().state.battle.activeUnitId;
+  private refreshUnitViews(): void {
+    const battle = gameEngine.getSnapshot().state.battle;
 
     for (const [unitId, view] of this.unitViews) {
-      view.marker.setStrokeStyle(unitId === activeUnitId ? 4 : 3, unitId === activeUnitId ? 0xf4c76a : 0xefe3c7, 1);
+      const unit = battle.units[unitId];
+      if (!unit) continue;
+      view.container.setAlpha(unit.defeated ? 0.28 : 1);
     }
+
+    this.refreshInteractionHighlights();
   }
 
   private async presentEvent(event: DomainEvent): Promise<void> {
@@ -155,8 +194,20 @@ export class BattleScene extends Phaser.Scene {
       case "battle.unit_moved":
         await this.presentMovement(event.unitId, event.path);
         return;
+      case "battle.attack_started":
+        await this.presentAttack(event.attackerId, event.targetId);
+        return;
+      case "battle.damage_dealt":
+        await this.presentDamage(event.targetId);
+        return;
+      case "battle.unit_defeated":
+        await this.presentDefeat(event.unitId);
+        return;
       case "battle.turn_advanced":
         await this.presentTurnAdvance(event.activeUnitId);
+        return;
+      case "battle.main_action_spent":
+      case "battle.reaction_spent":
         return;
     }
   }
@@ -178,6 +229,61 @@ export class BattleScene extends Phaser.Scene {
         });
       });
     }
+  }
+
+  private async presentAttack(attackerId: UnitId, targetId: UnitId): Promise<void> {
+    const attacker = this.unitViews.get(attackerId);
+    const target = this.unitViews.get(targetId);
+    if (!attacker || !target) return;
+
+    const origin = { x: attacker.container.x, y: attacker.container.y };
+    const dx = target.container.x - origin.x;
+    const dy = target.container.y - origin.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const lunge = 18;
+
+    await new Promise<void>(resolve => {
+      this.tweens.add({
+        targets: attacker.container,
+        x: origin.x + (dx / length) * lunge,
+        y: origin.y + (dy / length) * lunge,
+        duration: 90,
+        yoyo: true,
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
+  private async presentDamage(targetId: UnitId): Promise<void> {
+    const target = this.unitViews.get(targetId);
+    if (!target) return;
+
+    await new Promise<void>(resolve => {
+      this.tweens.add({
+        targets: target.marker,
+        alpha: 0.15,
+        duration: 70,
+        yoyo: true,
+        repeat: 1,
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
+  private async presentDefeat(unitId: UnitId): Promise<void> {
+    const view = this.unitViews.get(unitId);
+    if (!view) return;
+
+    await new Promise<void>(resolve => {
+      this.tweens.add({
+        targets: view.container,
+        alpha: 0.28,
+        scaleX: 0.82,
+        scaleY: 0.82,
+        duration: 220,
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   private async presentTurnAdvance(activeUnitId: UnitId): Promise<void> {
