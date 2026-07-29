@@ -2,6 +2,7 @@ import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
 
 export type UnitRole = "servant" | "master" | "familiar";
+export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
 
 export interface HexTileState {
   readonly coord: HexCoord;
@@ -29,6 +30,21 @@ export interface BattleUnitState {
   readonly mainActionAvailable: boolean;
   readonly reactionAvailable: boolean;
   readonly defeated: boolean;
+  readonly lowMana: boolean;
+  readonly deathWardActive: boolean;
+}
+
+export interface ContractState {
+  readonly factionId: FactionId;
+  readonly masterId: UnitId;
+  readonly servantId: UnitId;
+  readonly commandSeals: number;
+  readonly transferRange: number;
+  readonly transferAmount: number;
+  readonly guardRange: number;
+  readonly upkeep: number;
+  readonly trust: number;
+  readonly stability: number;
 }
 
 export interface BattleState {
@@ -38,6 +54,7 @@ export interface BattleState {
   readonly initiative: readonly UnitId[];
   readonly tiles: Readonly<Record<string, HexTileState>>;
   readonly units: Readonly<Record<string, BattleUnitState>>;
+  readonly contracts: Readonly<Record<string, ContractState>>;
 }
 
 export interface GameState {
