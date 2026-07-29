@@ -68,10 +68,14 @@ export type GameCommand =
   | MoveBattleUnitCommand
   | AttackBattleUnitCommand
   | EndBattleTurnCommand
-  | UseAbilityCommand
-  | PrepareNoblePhantasmCommand
-  | ReleaseNoblePhantasmCommand
   | TransferManaCommand
   | UseCommandSealCommand
   | BeginScenarioEncounterCommand
   | RetreatScenarioCommand;
+
+export type AbilityGameCommand =
+  | UseAbilityCommand
+  | PrepareNoblePhantasmCommand
+  | ReleaseNoblePhantasmCommand;
+
+export type AllGameCommand = GameCommand | AbilityGameCommand;
