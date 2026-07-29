@@ -11,13 +11,17 @@ The first vertical slice deliberately uses placeholder shapes and focuses on arc
 - Weighted hex-grid reachability and path preview
 - React information panels
 - Phaser battlefield rendering and animation
-- Turn advancement between Archer, Lancer, and a Master placeholder
 - Deterministic attacks, damage, adjacent counterattacks, and unit defeat
 - Master protection through Servant guard/interception reactions
 - Tactical mana transfer, contract range, and per-round Servant upkeep
 - Low-mana combat penalties and contract-stability hooks
 - Four command seal effects: recall, extra turn, mana infusion, and reject death
-- Vitest coverage for movement, combat, contract rules, and command seals
+- Authored school-night scenario state machine: investigation, encounter, noble-phantasm warning, and resolution
+- Deterministic Lancer enemy turns that prioritize pressure on the Master
+- Action-derived intelligence clues and live identity-candidate confidence
+- Tactical retreat as a valid objective with an after-action intelligence report
+- Browser-local save/load for scenario state and domain-event history
+- Vitest coverage for movement, combat, contracts, command seals, and scenario progression
 - GitHub Actions CI and GitHub Pages deployment
 
 ## Stack
