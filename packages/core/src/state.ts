@@ -3,6 +3,40 @@ import type { BattleId, FactionId, UnitId } from "./ids";
 
 export type UnitRole = "servant" | "master" | "familiar";
 export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
+export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
+export type ScenarioOutcome = "retreated_with_intel" | "enemy_defeated" | "master_defeated" | "servant_defeated";
+
+export interface IntelClue {
+  readonly id: string;
+  readonly category: "class" | "weapon" | "combat_style" | "origin" | "noble_phantasm";
+  readonly label: string;
+  readonly confidence: number;
+  readonly source: string;
+  readonly discoveredAtSequence: number;
+}
+
+export interface IdentityCandidate {
+  readonly id: string;
+  readonly name: string;
+  readonly confidence: number;
+}
+
+export interface ScenarioReport {
+  readonly title: string;
+  readonly summary: string;
+  readonly candidates: readonly IdentityCandidate[];
+  readonly unlockedTactics: readonly string[];
+}
+
+export interface ScenarioState {
+  readonly id: "school-night";
+  readonly phase: ScenarioPhase;
+  readonly objective: string;
+  readonly warningRound: number;
+  readonly clues: readonly IntelClue[];
+  readonly outcome?: ScenarioOutcome;
+  readonly report?: ScenarioReport;
+}
 
 export interface HexTileState {
   readonly coord: HexCoord;
@@ -58,6 +92,8 @@ export interface BattleState {
 }
 
 export interface GameState {
+  readonly schemaVersion: 1;
   readonly sequence: number;
+  readonly scenario: ScenarioState;
   readonly battle: BattleState;
 }
