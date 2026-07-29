@@ -1,5 +1,6 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
+import type { StrategyGameCommand } from "./strategy-commands";
 import type { AbilityId, CommandSealEffect } from "./state";
 
 export interface MoveBattleUnitCommand {
@@ -78,4 +79,4 @@ export type AbilityGameCommand =
   | PrepareNoblePhantasmCommand
   | ReleaseNoblePhantasmCommand;
 
-export type AllGameCommand = GameCommand | AbilityGameCommand;
+export type AllGameCommand = GameCommand | AbilityGameCommand | StrategyGameCommand;
