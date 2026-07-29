@@ -28,7 +28,7 @@ describe("school-night scenario", () => {
 
     expect(move.ok).toBe(false);
     if (move.ok) return;
-    expect(move.error.code).toBe("scenario_not_active");
+    expect(move.error.code).toBe("strategy_not_active");
   });
 
   it("opens the encounter and records the enemy class", () => {
