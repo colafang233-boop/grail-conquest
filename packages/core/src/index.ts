@@ -1,6 +1,6 @@
 export * from "./abilities";
 export * from "./ability-engine";
-export * from "./all-events";
+export type { AllDomainEvent, AllDomainEvent as DomainEvent } from "./all-events";
 export * from "./apply-all-event";
 export * from "./apply-event";
 export * from "./apply-strategy-event";
@@ -9,7 +9,6 @@ export * from "./combat";
 export * from "./combat-event-normalizer";
 export * from "./contract";
 export * from "./errors";
-export * from "./events";
 export * from "./execute-command";
 export * from "./hex";
 export * from "./ids";
