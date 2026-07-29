@@ -3,6 +3,7 @@ import {
   ARCHER_UNIT_ID,
   LANCER_UNIT_ID,
   RIN_UNIT_ID,
+  TOHSAKA_FACTION_ID,
   classifyDetection,
   createSchoolBattleState,
   determineAdvantage,
@@ -30,6 +31,15 @@ function resolveMoveToSchool(initial = createSchoolBattleState()) {
   const result = processCommand(locked, { type: "operations.resolve_night" });
   if (!result.ok) throw new Error(result.error.message);
   return result;
+}
+
+function enterFirstEncounter(state: GameState): GameState {
+  const encounter = state.strategy.encounterQueue[0];
+  if (!encounter) throw new Error("Expected queued encounter");
+  return dispatch(state, {
+    type: "operations.enter_encounter",
+    queueId: encounter.id,
+  });
 }
 
 describe("nightly operation cycle", () => {
@@ -78,14 +88,7 @@ describe("nightly operation cycle", () => {
   });
 
   it("enters a generated encounter with the detected advantage", () => {
-    const resolved = resolveMoveToSchool().state;
-    const encounter = resolved.strategy.encounterQueue[0];
-    if (!encounter) throw new Error("Expected queued encounter");
-    const entered = dispatch(resolved, {
-      type: "operations.enter_encounter",
-      queueId: encounter.id,
-    });
-
+    const entered = enterFirstEncounter(resolveMoveToSchool().state);
     expect(entered.mode).toBe("battle");
     expect(entered.strategy.activeEncounterId).toBe("school-night");
     expect(entered.battle.activeUnitId).toBe(LANCER_UNIT_ID);
@@ -100,6 +103,76 @@ describe("nightly operation cycle", () => {
     expect(classifyDetection(false, false)).toBe("missed");
     expect(determineAdvantage("mutual", "ambush", "move")).toBe("player");
     expect(determineAdvantage("mutual", "move", "ambush")).toBe("enemy");
+  });
+
+  it("converts workshop preparation into a barrier at encounter start", () => {
+    const initial = createSchoolBattleState();
+    const atControlledSchool: GameState = {
+      ...initial,
+      strategy: {
+        ...initial.strategy,
+        currentRegionId: "school",
+        regions: {
+          ...initial.strategy.regions,
+          school: {
+            ...initial.strategy.regions.school,
+            controlledBy: TOHSAKA_FACTION_ID,
+          },
+        },
+      },
+    };
+
+    let state = dispatch(atControlledSchool, {
+      type: "operations.submit_order",
+      orderType: "prepare_workshop",
+    });
+    state = dispatch(state, { type: "operations.lock_orders" });
+    state = dispatch(state, { type: "operations.resolve_night" });
+    state = enterFirstEncounter(state);
+
+    expect(state.strategy.workshopPrepared).toBe(false);
+    expect(state.battle.units[ARCHER_UNIT_ID]?.barrier).toBe(15);
+  });
+
+  it("returns a completed encounter to night settlement with consequences preserved", () => {
+    const entered = enterFirstEncounter(resolveMoveToSchool().state);
+    const warningState: GameState = {
+      ...entered,
+      scenario: {
+        ...entered.scenario,
+        phase: "noble_phantasm_warning",
+        clues: [
+          ...entered.scenario.clues,
+          {
+            id: "causality_reversal",
+            category: "noble_phantasm",
+            label: "因果逆转",
+            confidence: 90,
+            source: "test",
+            discoveredAtSequence: entered.sequence + 1,
+          },
+        ],
+      },
+      battle: {
+        ...entered.battle,
+        units: {
+          ...entered.battle.units,
+          [ARCHER_UNIT_ID]: {
+            ...entered.battle.units[ARCHER_UNIT_ID]!,
+            health: 73,
+            mana: 21,
+          },
+        },
+      },
+    };
+
+    const retreated = dispatch(warningState, { type: "scenario.retreat" });
+    expect(retreated.mode).toBe("strategy");
+    expect(retreated.strategy.phase).toBe("night_settlement");
+    expect(retreated.strategy.activeEncounterId).toBeUndefined();
+    expect(retreated.strategy.completedEncounterIds).toContain("school-night");
+    expect(retreated.battle.units[ARCHER_UNIT_ID]?.health).toBe(73);
+    expect(retreated.battle.units[ARCHER_UNIT_ID]?.mana).toBe(21);
   });
 
   it("settles a quiet night and applies dawn income before servant upkeep", () => {
