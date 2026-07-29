@@ -1,8 +1,10 @@
 import type {
   AttackBattleUnitCommand,
+  BeginScenarioEncounterCommand,
   EndBattleTurnCommand,
   GameCommand,
   MoveBattleUnitCommand,
+  RetreatScenarioCommand,
   TransferManaCommand,
   UseCommandSealCommand,
 } from "./commands";
@@ -18,6 +20,7 @@ import type { DomainEvent } from "./events";
 import { hexDistance, hexEquals, hexKey } from "./hex";
 import type { FactionId, UnitId } from "./ids";
 import { findReachableHexes } from "./pathfinding";
+import { buildScenarioReport } from "./scenario";
 import type { BattleState, BattleUnitState, ContractState, GameState } from "./state";
 
 export type CommandResult =
@@ -25,6 +28,15 @@ export type CommandResult =
   | { readonly ok: false; readonly error: DomainError };
 
 export function executeCommand(state: GameState, command: GameCommand): CommandResult {
+  if (isTacticalCommand(command)) {
+    if (state.scenario.phase === "investigation") {
+      return failure("scenario_not_active", "Complete the investigation before issuing battle orders");
+    }
+    if (state.scenario.phase === "completed") {
+      return failure("scenario_completed", "The school-night scenario has already ended");
+    }
+  }
+
   switch (command.type) {
     case "battle.move_unit":
       return executeMoveUnit(state, command);
@@ -36,9 +48,59 @@ export function executeCommand(state: GameState, command: GameCommand): CommandR
       return executeTransferMana(state, command);
     case "contract.use_command_seal":
       return executeUseCommandSeal(state, command);
+    case "scenario.begin_encounter":
+      return executeBeginScenarioEncounter(state, command);
+    case "scenario.retreat":
+      return executeScenarioRetreat(state, command);
     default:
       return assertNever(command);
   }
+}
+
+function isTacticalCommand(command: GameCommand): boolean {
+  return command.type.startsWith("battle.") || command.type.startsWith("contract.");
+}
+
+function executeBeginScenarioEncounter(
+  state: GameState,
+  _command: BeginScenarioEncounterCommand,
+): CommandResult {
+  if (state.scenario.phase !== "investigation") {
+    return failure("scenario_already_started", "The school-night encounter has already started");
+  }
+
+  return {
+    ok: true,
+    events: [{
+      type: "scenario.encounter_started",
+      sequence: state.sequence + 1,
+      scenarioId: state.scenario.id,
+    }],
+  };
+}
+
+function executeScenarioRetreat(
+  state: GameState,
+  _command: RetreatScenarioCommand,
+): CommandResult {
+  if (state.scenario.phase === "completed") {
+    return failure("scenario_completed", "The school-night scenario has already ended");
+  }
+  if (state.scenario.phase !== "noble_phantasm_warning") {
+    return failure("retreat_unavailable", "A tactical retreat is not available yet");
+  }
+
+  const outcome = "retreated_with_intel" as const;
+  return {
+    ok: true,
+    events: [{
+      type: "scenario.completed",
+      sequence: state.sequence + 1,
+      scenarioId: state.scenario.id,
+      outcome,
+      report: buildScenarioReport(outcome, state.scenario.clues),
+    }],
+  };
 }
 
 function executeMoveUnit(
