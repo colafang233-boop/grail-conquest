@@ -101,14 +101,14 @@ export function applyStrategyEvent(state: GameState, event: StrategyDomainEvent)
           objective: "学校夜战进行中。",
         },
       };
-    case "strategy.returned":
+    case "strategy.returned": {
+      const { pendingEncounterId: _pending, ...strategyWithoutPending } = state.strategy;
       return {
         ...state,
         sequence: event.sequence,
         mode: "strategy",
         strategy: {
-          ...state.strategy,
-          pendingEncounterId: undefined,
+          ...strategyWithoutPending,
           completedEncounterIds: state.strategy.completedEncounterIds.includes(event.encounterId)
             ? state.strategy.completedEncounterIds
             : [...state.strategy.completedEncounterIds, event.encounterId],
@@ -116,6 +116,7 @@ export function applyStrategyEvent(state: GameState, event: StrategyDomainEvent)
           objective: "已从学校夜战返回。战斗损耗、令咒消耗和获得的情报均已保留。",
         },
       };
+    }
     default:
       return assertNever(event);
   }
