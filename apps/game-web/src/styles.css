@@ -19,7 +19,7 @@ body {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 360px;
 }
 
 .battle-stage { padding: 24px 28px 30px; min-width: 0; }
@@ -45,7 +45,7 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
 .game-canvas canvas { display: block; }
 
 .battle-panel { padding: 28px 22px; border-left: 1px solid #303949; background: rgba(10, 14, 21, 0.93); backdrop-filter: blur(18px); }
-.panel-heading h2, .event-log h3, .unit-card h3 { margin: 4px 0 0; }
+.panel-heading h2, .event-log h3, .unit-card h3, .contract-card h3 { margin: 4px 0 0; }
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
 .metric { padding: 13px; border: 1px solid #303b4b; border-radius: 12px; background: #111824; }
 .metric span { display: block; color: #929ead; font-size: 0.76rem; }
@@ -57,13 +57,38 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
 .unit-card dl { margin: 18px 0 0; }
 .unit-card dl div { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid #2c3747; }
 .unit-card dt { color: #9ca7b5; }
-.unit-card dd { margin: 0; }
+.unit-card dd { margin: 0; text-align: right; }
 
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .action-button { padding: 10px; border: 1px solid #405067; border-radius: 10px; color: #cbd5e2; background: #121a26; cursor: pointer; }
 .action-button.active { border-color: #75a9bd; background: #1b3140; color: #eefbff; }
 .action-button.danger.active { border-color: #c76570; background: #3b1f28; color: #ffe8eb; }
 .action-button:disabled { cursor: not-allowed; opacity: 0.42; }
+
+.contract-card { margin-top: 16px; padding: 16px; border: 1px solid #4a425e; border-radius: 14px; background: linear-gradient(145deg, rgba(36, 28, 49, 0.92), rgba(17, 20, 32, 0.94)); }
+.contract-card .section-title { align-items: flex-start; gap: 12px; }
+.contract-status { flex: 0 0 auto; padding: 5px 8px; border: 1px solid #71516b; border-radius: 999px; color: #c6a8be; font-size: 0.68rem; }
+.contract-status.ready { border-color: #4c8b82; color: #96d8cf; background: rgba(51, 119, 108, 0.16); }
+.contract-pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin-top: 15px; }
+.contract-pair > div:not(.contract-link) { display: grid; gap: 3px; min-width: 0; }
+.contract-pair span, .contract-pair small { color: #9ca6b7; font-size: 0.72rem; }
+.contract-pair strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contract-link { padding: 5px 7px; border: 1px solid #514a64; border-radius: 999px; color: #b7abc9; font-size: 0.66rem; }
+.contract-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0 0; }
+.contract-metrics div { padding: 9px; border: 1px solid #3b394d; border-radius: 9px; background: rgba(10, 13, 21, 0.38); }
+.contract-metrics dt { color: #8f99a9; font-size: 0.67rem; }
+.contract-metrics dd { margin: 3px 0 0; font-weight: 700; }
+.mana-action { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid #4f8d8b; border-radius: 10px; color: #d9fbf6; background: rgba(33, 91, 88, 0.32); cursor: pointer; }
+.mana-action:disabled { cursor: not-allowed; opacity: 0.38; }
+.seal-heading { display: flex; align-items: center; justify-content: space-between; margin-top: 15px; color: #c8bdcf; font-size: 0.78rem; }
+.seal-marks { display: flex; gap: 7px; }
+.seal-marks i { width: 12px; height: 12px; border: 1px solid #62556e; border-radius: 50% 50% 44% 56%; transform: rotate(35deg); background: #1a1721; }
+.seal-marks i.active { border-color: #c76979; background: #9f3349; box-shadow: 0 0 10px rgba(199, 81, 104, 0.55); }
+.seal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.seal-grid button { padding: 8px; border: 1px solid #684657; border-radius: 9px; color: #e6c7cf; background: rgba(92, 38, 57, 0.28); cursor: pointer; font-size: 0.76rem; }
+.seal-grid button:hover:not(:disabled) { border-color: #a85b70; background: rgba(117, 43, 65, 0.42); }
+.seal-grid button:disabled { cursor: not-allowed; opacity: 0.35; }
+.ward-notice { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #795ba0; border-radius: 9px; color: #d7c2f3; background: rgba(81, 48, 112, 0.24); font-size: 0.75rem; }
 
 .primary-action { width: 100%; margin-top: 14px; padding: 12px 14px; border: 1px solid #d0ad62; border-radius: 12px; color: #15100a; background: linear-gradient(180deg, #e5c77f, #c89e4d); cursor: pointer; font-weight: 700; }
 .primary-action:hover { filter: brightness(1.06); }
@@ -79,7 +104,7 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
 .event-log code { color: #d9c79f; font-size: 0.75rem; overflow-wrap: anywhere; }
 .muted { color: #8f9aa9; line-height: 1.55; }
 
-@media (max-width: 980px) {
+@media (max-width: 1080px) {
   .app-shell { grid-template-columns: 1fr; }
   .battle-panel { border-left: 0; border-top: 1px solid #303949; }
 }
@@ -88,4 +113,6 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
   .battle-stage { padding: 18px 14px 22px; }
   .topbar { align-items: flex-start; flex-direction: column; }
   .battle-panel { padding: 22px 16px; }
+  .contract-pair { grid-template-columns: 1fr; }
+  .contract-link { width: fit-content; }
 }
