@@ -114,7 +114,7 @@ export function normalizeCombatEvents(
     if (rawEvent.type === "contract.mana_restored") {
       const servant = state.battle.units[rawEvent.servantId];
       const noble = servant?.noblePhantasm;
-      if (noble?.phase === "preparing") {
+      if (servant && noble?.phase === "preparing") {
         push({
           type: "noble_phantasm.charge_advanced",
           sequence: 0,
