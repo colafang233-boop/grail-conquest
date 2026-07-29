@@ -1,13 +1,13 @@
-import type { DomainEvent, GameState } from "@grail/core";
+import type { AllDomainEvent, GameState } from "@grail/core";
 import { gameEngine } from "./game-engine";
 
-const SAVE_KEY = "grail-conquest:school-night:v1";
+const SAVE_KEY = "grail-conquest:fuyuki-war:v2";
 
 interface StoredGame {
-  readonly formatVersion: 1;
+  readonly formatVersion: 2;
   readonly savedAt: string;
   readonly state: GameState;
-  readonly eventLog: readonly DomainEvent[];
+  readonly eventLog: readonly AllDomainEvent[];
 }
 
 export function hasSavedGame(): boolean {
@@ -17,7 +17,7 @@ export function hasSavedGame(): boolean {
 export function saveCurrentGame(): string {
   const snapshot = gameEngine.getSnapshot();
   const stored: StoredGame = {
-    formatVersion: 1,
+    formatVersion: 2,
     savedAt: new Date().toISOString(),
     state: snapshot.state,
     eventLog: snapshot.eventLog,
@@ -38,10 +38,11 @@ export function loadSavedGame(): string | undefined {
 function isStoredGame(value: unknown): value is StoredGame {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<StoredGame>;
-  return candidate.formatVersion === 1
+  return candidate.formatVersion === 2
     && typeof candidate.savedAt === "string"
     && Boolean(candidate.state)
-    && candidate.state?.schemaVersion === 1
+    && candidate.state?.schemaVersion === 2
     && candidate.state?.scenario?.id === "school-night"
+    && Boolean(candidate.state?.strategy)
     && Array.isArray(candidate.eventLog);
 }

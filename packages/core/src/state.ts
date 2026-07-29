@@ -1,6 +1,14 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
 
+export type GameMode = "strategy" | "battle";
+export type RegionId =
+  | "tohsaka-residence"
+  | "school"
+  | "shopping-street"
+  | "fuyuki-bridge"
+  | "harbor"
+  | "church";
 export type UnitRole = "servant" | "master" | "familiar";
 export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
 export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
@@ -64,6 +72,32 @@ export interface ScenarioState {
   readonly report?: ScenarioReport;
 }
 
+export interface StrategyRegionState {
+  readonly id: RegionId;
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly connections: readonly RegionId[];
+  readonly leylineStrength: number;
+  readonly discovered: boolean;
+  readonly investigated: boolean;
+  readonly controlledBy?: FactionId;
+  readonly encounterId?: "school-night";
+}
+
+export interface StrategyState {
+  readonly day: number;
+  readonly actionPoints: number;
+  readonly maxActionPoints: number;
+  readonly currentRegionId: RegionId;
+  readonly exposure: number;
+  readonly objective: string;
+  readonly regions: Readonly<Record<RegionId, StrategyRegionState>>;
+  readonly pendingEncounterId?: "school-night";
+  readonly completedEncounterIds: readonly string[];
+  readonly lastReport?: ScenarioReport;
+}
+
 export interface HexTileState {
   readonly coord: HexCoord;
   readonly movementCost: number;
@@ -123,8 +157,10 @@ export interface BattleState {
 }
 
 export interface GameState {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly sequence: number;
+  readonly mode: GameMode;
+  readonly strategy: StrategyState;
   readonly scenario: ScenarioState;
   readonly battle: BattleState;
 }
