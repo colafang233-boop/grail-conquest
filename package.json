@@ -1,0 +1,17 @@
+{
+  "name": "grail-conquest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @grail/game-web dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm --filter @grail/core test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
+  }
+}
