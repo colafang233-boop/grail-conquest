@@ -1,29 +1,29 @@
 import {
   processCommand,
+  type AllDomainEvent,
   type AllGameCommand,
   type DomainError,
-  type DomainEvent,
   type GameState,
 } from "@grail/core";
 
 export interface GameEngineSnapshot {
   readonly version: number;
   readonly state: GameState;
-  readonly lastEvents: readonly DomainEvent[];
-  readonly eventLog: readonly DomainEvent[];
+  readonly lastEvents: readonly AllDomainEvent[];
+  readonly eventLog: readonly AllDomainEvent[];
   readonly lastError?: DomainError;
 }
 
 export interface DispatchResult {
   readonly ok: boolean;
-  readonly events: readonly DomainEvent[];
+  readonly events: readonly AllDomainEvent[];
   readonly error?: DomainError;
 }
 
 export class GameEngine {
   private state: GameState;
   private version = 0;
-  private eventLog: readonly DomainEvent[] = [];
+  private eventLog: readonly AllDomainEvent[] = [];
   private snapshot: GameEngineSnapshot;
   private readonly listeners = new Set<() => void>();
 
@@ -73,7 +73,7 @@ export class GameEngine {
     return { ok: true, events: result.events };
   }
 
-  public restore(state: GameState, eventLog: readonly DomainEvent[] = []): void {
+  public restore(state: GameState, eventLog: readonly AllDomainEvent[] = []): void {
     this.state = state;
     this.eventLog = [...eventLog];
     this.version += 1;
