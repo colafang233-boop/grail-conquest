@@ -1,5 +1,6 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
+import type { OperationsGameCommand } from "./operations-commands";
 import type { StrategyGameCommand } from "./strategy-commands";
 import type { AbilityId, CommandSealEffect } from "./state";
 
@@ -79,4 +80,8 @@ export type AbilityGameCommand =
   | PrepareNoblePhantasmCommand
   | ReleaseNoblePhantasmCommand;
 
-export type AllGameCommand = GameCommand | AbilityGameCommand | StrategyGameCommand;
+export type AllGameCommand =
+  | GameCommand
+  | AbilityGameCommand
+  | StrategyGameCommand
+  | OperationsGameCommand;

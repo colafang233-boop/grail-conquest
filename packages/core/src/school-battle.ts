@@ -33,7 +33,7 @@ export function createSchoolBattleState(): GameState {
   }
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sequence: 0,
     mode: "strategy",
     strategy: createInitialStrategyState(),

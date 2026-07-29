@@ -1,4 +1,5 @@
 import type { StrategyDomainEvent } from "./strategy-events";
+import { getEncounterDefinition } from "./strategy";
 import type { GameState, RegionId } from "./state";
 
 export function applyStrategyEvent(state: GameState, event: StrategyDomainEvent): GameState {
@@ -89,7 +90,7 @@ export function applyStrategyEvent(state: GameState, event: StrategyDomainEvent)
       return updateStrategy(state, event.sequence, {
         ...state.strategy,
         pendingEncounterId: event.encounterId,
-        objective: "学校内确认到未知 Servant 反应。可以进入结界，也可以先控制灵脉或休整。",
+        objective: `${getEncounterDefinition(event.encounterId).title}已确认，可以进入遭遇或继续准备。`,
       });
     case "strategy.encounter_entered":
       return {
@@ -98,22 +99,29 @@ export function applyStrategyEvent(state: GameState, event: StrategyDomainEvent)
         mode: "battle",
         strategy: {
           ...state.strategy,
-          objective: "学校夜战进行中。",
+          activeEncounterId: event.encounterId,
+          objective: `${getEncounterDefinition(event.encounterId).title}进行中。`,
         },
       };
     case "strategy.returned": {
-      const { pendingEncounterId: _pending, ...strategyWithoutPending } = state.strategy;
+      const {
+        pendingEncounterId: _pending,
+        activeEncounterId: _active,
+        ...strategyWithoutEncounter
+      } = state.strategy;
       return {
         ...state,
         sequence: event.sequence,
         mode: "strategy",
         strategy: {
-          ...strategyWithoutPending,
+          ...strategyWithoutEncounter,
+          phase: "night_settlement",
+          encounterQueue: [],
           completedEncounterIds: state.strategy.completedEncounterIds.includes(event.encounterId)
             ? state.strategy.completedEncounterIds
             : [...state.strategy.completedEncounterIds, event.encounterId],
           lastReport: event.report,
-          objective: "已从学校夜战返回。战斗损耗、令咒消耗和获得的情报均已保留。",
+          objective: "遭遇结束。战斗损耗、令咒消耗和情报均已保留，等待清晨结算。",
         },
       };
     }

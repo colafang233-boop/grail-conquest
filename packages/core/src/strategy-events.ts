@@ -1,5 +1,5 @@
 import type { FactionId, UnitId } from "./ids";
-import type { RegionId, ScenarioOutcome, ScenarioReport } from "./state";
+import type { EncounterId, RegionId, ScenarioOutcome, ScenarioReport } from "./state";
 
 interface StrategyEventBase {
   readonly sequence: number;
@@ -63,18 +63,18 @@ export interface StrategyManaIncomeEvent extends StrategyEventBase {
 
 export interface StrategyEncounterPreparedEvent extends StrategyEventBase {
   readonly type: "strategy.encounter_prepared";
-  readonly encounterId: "school-night";
+  readonly encounterId: EncounterId;
   readonly regionId: RegionId;
 }
 
 export interface StrategyEncounterEnteredEvent extends StrategyEventBase {
   readonly type: "strategy.encounter_entered";
-  readonly encounterId: "school-night";
+  readonly encounterId: EncounterId;
 }
 
 export interface StrategyReturnedEvent extends StrategyEventBase {
   readonly type: "strategy.returned";
-  readonly encounterId: "school-night";
+  readonly encounterId: EncounterId;
   readonly outcome: ScenarioOutcome;
   readonly report: ScenarioReport;
 }

@@ -11,14 +11,14 @@ export function StrategyScreen() {
             <p className="eyebrow">冬木市 · 第五次圣杯战争</p>
             <h1>Grail Conquest</h1>
           </div>
-          <div className="prototype-badge">STRATEGY SLICE 0.6</div>
+          <div className="prototype-badge">OPERATIONS SLICE 0.7</div>
         </header>
 
         <div className="mission-strip">
           <span className="mission-dot" />
           <div>
-            <strong>战略目标</strong>
-            <p>移动到学校并调查异常，在夜战中获取真名线索，再带着真实损耗返回冬木地图。</p>
+            <strong>夜间作战目标</strong>
+            <p>在不知道敌方命令的情况下锁定计划，随后同步移动并依据暴露度、情报与伏击状态判定遭遇。</p>
           </div>
         </div>
 
@@ -26,9 +26,11 @@ export function StrategyScreen() {
 
         <div className="strategy-legend">
           <span><i className="current" />当前位置</span>
+          <span><i className="planned" />计划路线</span>
+          <span><i className="enemy" />已知敌踪</span>
           <span><i className="leyline" />已控制灵脉</span>
+          <span><i className="danger" />遭遇已生成</span>
           <span><i className="unknown" />战争迷雾</span>
-          <span><i className="danger" />遭遇已发现</span>
         </div>
       </section>
       <StrategyPanel />

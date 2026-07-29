@@ -1,6 +1,8 @@
 import type { DomainEvent } from "./events";
 import { unitId } from "./ids";
+import { getEncounterDefinition } from "./strategy";
 import type {
+  EncounterId,
   GameState,
   IdentityCandidate,
   IntelClue,
@@ -116,14 +118,16 @@ export function evaluateIdentityCandidates(
 export function buildScenarioReport(
   outcome: ScenarioOutcome,
   clues: readonly IntelClue[],
+  encounterId: EncounterId = "school-night",
 ): ScenarioReport {
   const candidates = evaluateIdentityCandidates(clues);
   const top = candidates[0];
+  const encounter = getEncounterDefinition(encounterId);
   const summaryByOutcome: Readonly<Record<ScenarioOutcome, string>> = {
-    retreated_with_intel: `远坂阵营成功脱离学园。虽未击败敌人，但已取得足以改变下一次交战计划的情报。最高候选：${top?.name ?? "未知"}。`,
-    enemy_defeated: `未知 Lancer 已被击败，战场记录完整保留。最高候选：${top?.name ?? "未知"}。`,
-    master_defeated: "Master 在学园夜战中失去战斗能力，本次调查失败。",
-    servant_defeated: "Servant 在撤离前失去战斗能力，本次调查失败。",
+    retreated_with_intel: `远坂阵营成功脱离${encounter.title}。虽未击败敌人，但已取得足以改变下一次交战计划的情报。最高候选：${top?.name ?? "未知"}。`,
+    enemy_defeated: `未知 Lancer 已在${encounter.title}中被击败，战场记录完整保留。最高候选：${top?.name ?? "未知"}。`,
+    master_defeated: `Master 在${encounter.title}中失去战斗能力，本次行动失败。`,
+    servant_defeated: `Servant 在${encounter.title}撤离前失去战斗能力，本次行动失败。`,
   };
 
   const ids = new Set(clues.map(clue => clue.id));
@@ -145,7 +149,9 @@ export function buildScenarioReport(
   }
 
   return {
-    title: outcome === "retreated_with_intel" ? "战术撤退 · 情报保全" : "学校夜战结算",
+    title: outcome === "retreated_with_intel"
+      ? `${encounter.title} · 战术撤退`
+      : `${encounter.title}结算`,
     summary: summaryByOutcome[outcome],
     candidates,
     unlockedTactics,
@@ -217,7 +223,11 @@ export function evaluateScenarioTriggers(
       sequence: ++sequence,
       scenarioId: after.scenario.id,
       outcome,
-      report: buildScenarioReport(outcome, allClues),
+      report: buildScenarioReport(
+        outcome,
+        allClues,
+        after.strategy.activeEncounterId ?? "school-night",
+      ),
     });
   };
 
