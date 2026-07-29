@@ -8,6 +8,7 @@ export function useScenarioController(): void {
 
   useEffect(() => {
     if (
+      snapshot.state.mode !== "battle" ||
       snapshot.state.scenario.phase === "investigation" ||
       snapshot.state.scenario.phase === "completed" ||
       snapshot.state.battle.activeUnitId !== LANCER_UNIT_ID
@@ -17,6 +18,7 @@ export function useScenarioController(): void {
     return () => window.clearTimeout(timer);
   }, [
     snapshot.version,
+    snapshot.state.mode,
     snapshot.state.battle.activeUnitId,
     snapshot.state.scenario.phase,
   ]);
