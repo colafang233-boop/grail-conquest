@@ -1,6 +1,11 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
-import type { CommandSealEffect } from "./state";
+import type {
+  CommandSealEffect,
+  IntelClue,
+  ScenarioOutcome,
+  ScenarioReport,
+} from "./state";
 
 export interface UnitMovedEvent {
   readonly type: "battle.unit_moved";
@@ -155,6 +160,35 @@ export interface DeathRejectedEvent {
   readonly sourceId: UnitId;
 }
 
+export interface ScenarioEncounterStartedEvent {
+  readonly type: "scenario.encounter_started";
+  readonly sequence: number;
+  readonly scenarioId: "school-night";
+}
+
+export interface ScenarioClueDiscoveredEvent {
+  readonly type: "scenario.clue_discovered";
+  readonly sequence: number;
+  readonly scenarioId: "school-night";
+  readonly clue: IntelClue;
+}
+
+export interface NoblePhantasmWarningEvent {
+  readonly type: "scenario.noble_phantasm_warning";
+  readonly sequence: number;
+  readonly scenarioId: "school-night";
+  readonly enemyId: UnitId;
+  readonly message: string;
+}
+
+export interface ScenarioCompletedEvent {
+  readonly type: "scenario.completed";
+  readonly sequence: number;
+  readonly scenarioId: "school-night";
+  readonly outcome: ScenarioOutcome;
+  readonly report: ScenarioReport;
+}
+
 export type DomainEvent =
   | UnitMovedEvent
   | AttackStartedEvent
@@ -173,4 +207,8 @@ export type DomainEvent =
   | ExtraTurnGrantedEvent
   | ManaRestoredEvent
   | DeathWardActivatedEvent
-  | DeathRejectedEvent;
+  | DeathRejectedEvent
+  | ScenarioEncounterStartedEvent
+  | ScenarioClueDiscoveredEvent
+  | NoblePhantasmWarningEvent
+  | ScenarioCompletedEvent;
