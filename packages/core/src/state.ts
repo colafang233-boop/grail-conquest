@@ -9,6 +9,23 @@ export type RegionId =
   | "fuyuki-bridge"
   | "harbor"
   | "church";
+export type EncounterId = "school-night" | "bridge-duel" | "harbor-clash";
+export type OperationPhase =
+  | "dawn"
+  | "planning"
+  | "orders_locked"
+  | "movement_resolution"
+  | "encounter_resolution"
+  | "night_settlement";
+export type StrategicOrderType =
+  | "move"
+  | "investigate"
+  | "defend_leyline"
+  | "ambush"
+  | "rest"
+  | "prepare_workshop";
+export type DetectionOutcome = "mutual" | "player_only" | "enemy_only" | "missed";
+export type EncounterAdvantage = "player" | "enemy" | "none";
 export type UnitRole = "servant" | "master" | "familiar";
 export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
 export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
@@ -72,6 +89,39 @@ export interface ScenarioState {
   readonly report?: ScenarioReport;
 }
 
+export interface StrategicOrder {
+  readonly factionId: FactionId;
+  readonly type: StrategicOrderType;
+  readonly originRegionId: RegionId;
+  readonly destinationRegionId: RegionId;
+  readonly day: number;
+}
+
+export interface OperationDetection {
+  readonly regionId: RegionId;
+  readonly outcome: DetectionOutcome;
+  readonly playerScore: number;
+  readonly enemyScore: number;
+  readonly playerRoll: number;
+  readonly enemyRoll: number;
+}
+
+export interface StrategyEncounterQueueItem {
+  readonly id: string;
+  readonly encounterId: EncounterId;
+  readonly regionId: RegionId;
+  readonly detection: DetectionOutcome;
+  readonly advantage: EncounterAdvantage;
+  readonly mandatory: boolean;
+}
+
+export interface StrategyTimelineEntry {
+  readonly id: string;
+  readonly phase: OperationPhase;
+  readonly message: string;
+  readonly regionId?: RegionId;
+}
+
 export interface StrategyRegionState {
   readonly id: RegionId;
   readonly name: string;
@@ -82,7 +132,7 @@ export interface StrategyRegionState {
   readonly discovered: boolean;
   readonly investigated: boolean;
   readonly controlledBy?: FactionId;
-  readonly encounterId?: "school-night";
+  readonly encounterId?: EncounterId;
 }
 
 export interface StrategyState {
@@ -90,10 +140,22 @@ export interface StrategyState {
   readonly actionPoints: number;
   readonly maxActionPoints: number;
   readonly currentRegionId: RegionId;
+  readonly enemyRegionId: RegionId;
+  readonly knownEnemyRegionId?: RegionId;
   readonly exposure: number;
+  readonly enemyExposure: number;
   readonly objective: string;
   readonly regions: Readonly<Record<RegionId, StrategyRegionState>>;
-  readonly pendingEncounterId?: "school-night";
+  readonly phase: OperationPhase;
+  readonly playerOrder?: StrategicOrder;
+  readonly enemyOrder?: StrategicOrder;
+  readonly encounterQueue: readonly StrategyEncounterQueueItem[];
+  readonly activeEncounterId?: EncounterId;
+  readonly resolutionTimeline: readonly StrategyTimelineEntry[];
+  readonly lastDetection?: OperationDetection;
+  readonly operationSeed: number;
+  readonly workshopPrepared: boolean;
+  readonly pendingEncounterId?: EncounterId;
   readonly completedEncounterIds: readonly string[];
   readonly lastReport?: ScenarioReport;
 }
@@ -157,7 +219,7 @@ export interface BattleState {
 }
 
 export interface GameState {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly sequence: number;
   readonly mode: GameMode;
   readonly strategy: StrategyState;
