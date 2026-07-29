@@ -1,6 +1,7 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
 import type {
+  AbilityId,
   CommandSealEffect,
   IntelClue,
   ScenarioOutcome,
@@ -18,13 +19,23 @@ export interface UnitMovedEvent {
   readonly movementSpent: number;
 }
 
+export interface UnitDisplacedEvent {
+  readonly type: "battle.unit_displaced";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly unitId: UnitId;
+  readonly from: HexCoord;
+  readonly to: HexCoord;
+  readonly sourceId: UnitId;
+}
+
 export interface AttackStartedEvent {
   readonly type: "battle.attack_started";
   readonly sequence: number;
   readonly battleId: BattleId;
   readonly attackerId: UnitId;
   readonly targetId: UnitId;
-  readonly kind: "normal" | "counter";
+  readonly kind: "normal" | "counter" | "ability" | "noble_phantasm";
 }
 
 export interface MainActionSpentEvent {
@@ -41,6 +52,15 @@ export interface ReactionSpentEvent {
   readonly unitId: UnitId;
 }
 
+export interface ManaSpentEvent {
+  readonly type: "battle.mana_spent";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly unitId: UnitId;
+  readonly amount: number;
+  readonly reason: "ability" | "noble_phantasm";
+}
+
 export interface DamageDealtEvent {
   readonly type: "battle.damage_dealt";
   readonly sequence: number;
@@ -48,7 +68,15 @@ export interface DamageDealtEvent {
   readonly sourceId: UnitId;
   readonly targetId: UnitId;
   readonly amount: number;
-  readonly kind: "normal" | "counter";
+  readonly kind: "normal" | "counter" | "ability" | "noble_phantasm";
+}
+
+export interface BarrierAbsorbedEvent {
+  readonly type: "battle.barrier_absorbed";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly targetId: UnitId;
+  readonly amount: number;
 }
 
 export interface UnitDefeatedEvent {
@@ -66,6 +94,99 @@ export interface BattleTurnAdvancedEvent {
   readonly previousUnitId: UnitId;
   readonly activeUnitId: UnitId;
   readonly round: number;
+}
+
+export interface AbilityUsedEvent {
+  readonly type: "ability.used";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly actorId: UnitId;
+  readonly abilityId: AbilityId;
+  readonly targetIds: readonly UnitId[];
+}
+
+export interface BarrierAppliedEvent {
+  readonly type: "ability.barrier_applied";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly sourceId: UnitId;
+  readonly targetId: UnitId;
+  readonly amount: number;
+}
+
+export interface GuardSupportActivatedEvent {
+  readonly type: "ability.guard_support_activated";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly guardBonus: number;
+}
+
+export interface BattleContinuationActivatedEvent {
+  readonly type: "ability.battle_continuation_activated";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+}
+
+export interface BattleContinuationTriggeredEvent {
+  readonly type: "ability.battle_continuation_triggered";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly sourceId: UnitId;
+}
+
+export interface NoblePhantasmPreparationStartedEvent {
+  readonly type: "noble_phantasm.preparation_started";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly definitionId: string;
+  readonly targetId: UnitId;
+  readonly requiredCharge: number;
+  readonly interruptThreshold: number;
+}
+
+export interface NoblePhantasmChargeAdvancedEvent {
+  readonly type: "noble_phantasm.charge_advanced";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly charge: number;
+}
+
+export interface NoblePhantasmReadyEvent {
+  readonly type: "noble_phantasm.ready";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+}
+
+export interface NoblePhantasmReleasedEvent {
+  readonly type: "noble_phantasm.released";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly definitionId: string;
+  readonly targetId: UnitId;
+}
+
+export interface NoblePhantasmInterruptedEvent {
+  readonly type: "noble_phantasm.interrupted";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly sourceId: UnitId;
+  readonly reason: "damage" | "displacement" | "command_seal";
+}
+
+export interface NoblePhantasmCooldownChangedEvent {
+  readonly type: "noble_phantasm.cooldown_changed";
+  readonly sequence: number;
+  readonly battleId: BattleId;
+  readonly servantId: UnitId;
+  readonly remaining: number;
 }
 
 export interface MasterGuardedEvent {
@@ -191,12 +312,26 @@ export interface ScenarioCompletedEvent {
 
 export type DomainEvent =
   | UnitMovedEvent
+  | UnitDisplacedEvent
   | AttackStartedEvent
   | MainActionSpentEvent
   | ReactionSpentEvent
+  | ManaSpentEvent
   | DamageDealtEvent
+  | BarrierAbsorbedEvent
   | UnitDefeatedEvent
   | BattleTurnAdvancedEvent
+  | AbilityUsedEvent
+  | BarrierAppliedEvent
+  | GuardSupportActivatedEvent
+  | BattleContinuationActivatedEvent
+  | BattleContinuationTriggeredEvent
+  | NoblePhantasmPreparationStartedEvent
+  | NoblePhantasmChargeAdvancedEvent
+  | NoblePhantasmReadyEvent
+  | NoblePhantasmReleasedEvent
+  | NoblePhantasmInterruptedEvent
+  | NoblePhantasmCooldownChangedEvent
   | MasterGuardedEvent
   | ManaTransferredEvent
   | ServantUpkeepPaidEvent
