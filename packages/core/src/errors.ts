@@ -21,7 +21,11 @@ export type DomainErrorCode =
   | "servant_mana_full"
   | "command_seals_exhausted"
   | "command_seal_no_effect"
-  | "recall_destination_unavailable";
+  | "recall_destination_unavailable"
+  | "scenario_not_active"
+  | "scenario_already_started"
+  | "scenario_completed"
+  | "retreat_unavailable";
 
 export interface DomainError {
   readonly code: DomainErrorCode;

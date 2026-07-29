@@ -28,6 +28,14 @@ export interface TransferManaCommand {
   readonly factionId: FactionId;
 }
 
+export interface BeginScenarioEncounterCommand {
+  readonly type: "scenario.begin_encounter";
+}
+
+export interface RetreatScenarioCommand {
+  readonly type: "scenario.retreat";
+}
+
 export interface UseCommandSealCommand {
   readonly type: "contract.use_command_seal";
   readonly battleId: BattleId;
@@ -40,4 +48,6 @@ export type GameCommand =
   | AttackBattleUnitCommand
   | EndBattleTurnCommand
   | TransferManaCommand
-  | UseCommandSealCommand;
+  | UseCommandSealCommand
+  | BeginScenarioEncounterCommand
+  | RetreatScenarioCommand;

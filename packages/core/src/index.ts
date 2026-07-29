@@ -9,5 +9,6 @@ export * from "./hex";
 export * from "./ids";
 export * from "./pathfinding";
 export * from "./process-command";
+export * from "./scenario";
 export * from "./school-battle";
 export * from "./state";

@@ -73,6 +73,19 @@ export class GameEngine {
     return { ok: true, events: result.events };
   }
 
+  public restore(state: GameState, eventLog: readonly DomainEvent[] = []): void {
+    this.state = state;
+    this.eventLog = [...eventLog];
+    this.version += 1;
+    this.snapshot = {
+      version: this.version,
+      state: this.state,
+      lastEvents: [],
+      eventLog: this.eventLog,
+    };
+    this.notify();
+  }
+
   private notify(): void {
     for (const listener of this.listeners) listener();
   }

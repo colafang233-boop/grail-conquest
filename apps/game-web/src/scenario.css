@@ -1,0 +1,43 @@
+.battlefield-wrap { position: relative; }
+.scenario-overlay { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 22px; pointer-events: none; }
+.scenario-overlay.full { background: rgba(4, 7, 12, 0.78); backdrop-filter: blur(5px); pointer-events: auto; }
+.warning-layer { align-items: start; padding-top: 32px; background: linear-gradient(180deg, rgba(64, 9, 23, 0.62), transparent 75%); pointer-events: auto; }
+.scenario-dialog { width: min(590px, 100%); padding: 24px; border: 1px solid #4b586b; border-radius: 16px; background: rgba(11, 16, 24, 0.97); box-shadow: 0 24px 75px rgba(0, 0, 0, 0.56); }
+.scenario-dialog h2 { margin: 7px 0 12px; font-family: Georgia, serif; }
+.scenario-dialog > p:not(.eyebrow):not(.save-feedback) { color: #b4bdca; line-height: 1.65; }
+.investigation-list, .tactic-list { padding-left: 20px; color: #aab5c4; line-height: 1.6; }
+.dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.primary-action.compact { width: auto; min-width: 150px; margin-top: 0; }
+.secondary-action, .retreat-action { padding: 11px 15px; border-radius: 11px; cursor: pointer; }
+.secondary-action { border: 1px solid #49566a; color: #d1d9e5; background: #17202d; }
+.secondary-action:disabled { opacity: 0.36; cursor: not-allowed; }
+.retreat-action { border: 1px solid #d07c64; color: #fff0e8; background: linear-gradient(180deg, #914333, #6b2b25); font-weight: 700; }
+.warning-dialog { border-color: #a75262; background: rgba(31, 10, 18, 0.97); }
+.warning-dialog h2 { color: #ffd1d8; }
+.report-dialog { width: min(720px, 100%); max-height: 94%; overflow: auto; }
+.report-columns { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 16px; margin-top: 18px; }
+.report-columns section { padding: 14px; border: 1px solid #354154; border-radius: 12px; background: rgba(16, 23, 34, 0.78); }
+.report-columns h3 { margin: 0 0 10px; }
+.candidate-list { list-style: none; margin: 0; padding: 0; }
+.candidate-list li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid #2d3747; }
+.candidate-list strong { color: #dbbf7c; }
+.clue-details { margin-top: 15px; color: #abb6c6; }
+.clue-details summary { cursor: pointer; color: #d8cba8; }
+.save-toolbar { position: absolute; top: 12px; right: 12px; z-index: 7; display: flex; align-items: center; gap: 7px; padding: 7px; border: 1px solid #364458; border-radius: 10px; background: rgba(8, 12, 18, 0.88); pointer-events: auto; }
+.save-toolbar button { padding: 5px 9px; border: 1px solid #46546a; border-radius: 7px; color: #cbd4df; background: #151d29; cursor: pointer; font-size: 0.72rem; }
+.save-toolbar button:disabled { opacity: 0.35; cursor: not-allowed; }
+.save-toolbar span, .save-feedback { color: #92adab; font-size: 0.7rem; }
+.scenario-card { margin-bottom: 14px; padding: 14px; border: 1px solid #36475b; border-radius: 13px; background: rgba(16, 25, 37, 0.88); }
+.scenario-card > p { margin: 9px 0; color: #aeb9c8; font-size: 0.84rem; line-height: 1.5; }
+.live-clues { margin: 9px 0; padding-left: 18px; color: #c7bfa8; font-size: 0.75rem; line-height: 1.5; }
+.top-candidate { display: flex; justify-content: space-between; gap: 10px; padding-top: 9px; border-top: 1px solid #2d394a; font-size: 0.76rem; }
+.top-candidate span { color: #929eae; }
+.top-candidate strong { color: #e0c47e; }
+.phase-value { font-size: 0.95rem !important; }
+
+@media (max-width: 620px) {
+  .scenario-overlay { padding: 10px; }
+  .scenario-dialog { padding: 17px; }
+  .report-columns { grid-template-columns: 1fr; }
+  .save-toolbar span { display: none; }
+}

@@ -9,9 +9,15 @@ import {
   processCommand,
 } from "../src";
 
+function createEncounterState() {
+  const started = processCommand(createSchoolBattleState(), { type: "scenario.begin_encounter" });
+  if (!started.ok) throw new Error(started.error.message);
+  return started.state;
+}
+
 describe("battle movement", () => {
   it("moves the active unit along a legal path", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const result = processCommand(initial, {
       type: "battle.move_unit",
       battleId: SCHOOL_BATTLE_ID,
@@ -40,7 +46,7 @@ describe("battle movement", () => {
   });
 
   it("rejects occupied destinations", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const result = processCommand(initial, {
       type: "battle.move_unit",
       battleId: SCHOOL_BATTLE_ID,
@@ -54,7 +60,7 @@ describe("battle movement", () => {
   });
 
   it("advances initiative and refreshes the next unit movement", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const result = processCommand(initial, {
       type: "battle.end_turn",
       battleId: SCHOOL_BATTLE_ID,

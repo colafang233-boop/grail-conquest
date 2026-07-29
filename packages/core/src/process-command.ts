@@ -4,6 +4,7 @@ import type { DomainEvent } from "./events";
 import type { GameState } from "./state";
 import { applyEvent } from "./apply-event";
 import { executeCommand } from "./execute-command";
+import { evaluateScenarioTriggers } from "./scenario";
 
 export type ProcessCommandResult =
   | {
@@ -33,9 +34,13 @@ export function processCommand(
     };
   }
 
+  const commandState = execution.events.reduce(applyEvent, state);
+  const scenarioEvents = evaluateScenarioTriggers(state, commandState, execution.events);
+  const allEvents = [...execution.events, ...scenarioEvents];
+
   return {
     ok: true,
-    state: execution.events.reduce(applyEvent, state),
-    events: execution.events,
+    state: scenarioEvents.reduce(applyEvent, commandState),
+    events: allEvents,
   };
 }

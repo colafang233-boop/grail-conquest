@@ -8,9 +8,15 @@ import {
   processCommand,
 } from "../src";
 
+function createEncounterState() {
+  const started = processCommand(createSchoolBattleState(), { type: "scenario.begin_encounter" });
+  if (!started.ok) throw new Error(started.error.message);
+  return started.state;
+}
+
 describe("battle attacks", () => {
   it("deals deterministic damage and spends the main action", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const result = processCommand(initial, {
       type: "battle.attack_unit",
       battleId: SCHOOL_BATTLE_ID,
@@ -31,7 +37,7 @@ describe("battle attacks", () => {
   });
 
   it("triggers one counterattack when the target is adjacent", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const adjacent = {
       ...initial,
       battle: {
@@ -62,7 +68,7 @@ describe("battle attacks", () => {
   });
 
   it("rejects friendly fire", () => {
-    const result = processCommand(createSchoolBattleState(), {
+    const result = processCommand(createEncounterState(), {
       type: "battle.attack_unit",
       battleId: SCHOOL_BATTLE_ID,
       attackerId: ARCHER_UNIT_ID,
@@ -75,7 +81,7 @@ describe("battle attacks", () => {
   });
 
   it("defeats a target and prevents its counterattack", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const fragileTarget = {
       ...initial,
       battle: {
@@ -101,12 +107,13 @@ describe("battle attacks", () => {
     if (!result.ok) return;
 
     expect(result.state.battle.units[LANCER_UNIT_ID]?.defeated).toBe(true);
-    expect(result.events.at(-1)?.type).toBe("battle.unit_defeated");
+    expect(result.events.some(event => event.type === "battle.unit_defeated")).toBe(true);
     expect(result.events.some(event => event.type === "battle.reaction_spent")).toBe(false);
+    expect(result.state.scenario.outcome).toBe("enemy_defeated");
   });
 
   it("skips defeated units when advancing initiative", () => {
-    const initial = createSchoolBattleState();
+    const initial = createEncounterState();
     const defeatedLancer = {
       ...initial,
       battle: {
