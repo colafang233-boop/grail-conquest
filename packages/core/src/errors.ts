@@ -11,7 +11,17 @@ export type DomainErrorCode =
   | "target_defeated"
   | "friendly_target"
   | "attack_out_of_range"
-  | "main_action_unavailable";
+  | "main_action_unavailable"
+  | "contract_not_found"
+  | "master_defeated"
+  | "servant_defeated"
+  | "master_not_active"
+  | "contract_out_of_range"
+  | "insufficient_mana"
+  | "servant_mana_full"
+  | "command_seals_exhausted"
+  | "command_seal_no_effect"
+  | "recall_destination_unavailable";
 
 export interface DomainError {
   readonly code: DomainErrorCode;
