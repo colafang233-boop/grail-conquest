@@ -2,26 +2,28 @@
 
 A browser-first turn-based strategy prototype built around Holy Grail War-style decisions: a Master–Servant pair, limited command seals, mana pressure, hidden identities, and tactical hex-grid encounters.
 
-The first vertical slice deliberately uses placeholder shapes and focuses on architecture rather than copyrighted art, music, or extracted game assets.
+The current prototype deliberately uses placeholder shapes and focuses on architecture rather than copyrighted art, music, or extracted game assets.
 
 ## Current playable slice
 
 - Deterministic TypeScript rules core
 - Command → domain event → reducer state pipeline
 - Weighted hex-grid reachability and path preview
-- React information panels
-- Phaser battlefield rendering and animation
-- Deterministic attacks, damage, adjacent counterattacks, and unit defeat
+- React information panels and Phaser battlefield presentation
+- Deterministic attacks, adjacent counterattacks, barriers, displacement, and unit defeat
 - Master protection through Servant guard/interception reactions
-- Tactical mana transfer, contract range, and per-round Servant upkeep
-- Low-mana combat penalties and contract-stability hooks
-- Four command seal effects: recall, extra turn, mana infusion, and reject death
-- Authored school-night scenario state machine: investigation, encounter, noble-phantasm warning, and resolution
+- Tactical mana transfer, contract range, per-round upkeep, and four command-seal effects
+- Authored school-night scenario: investigation, encounter, real noble-phantasm warning, retreat, and after-action report
 - Deterministic Lancer enemy turns that prioritize pressure on the Master
 - Action-derived intelligence clues and live identity-candidate confidence
-- Tactical retreat as a valid objective with an after-action intelligence report
-- Browser-local save/load for scenario state and domain-event history
-- Vitest coverage for movement, combat, contracts, command seals, and scenario progression
+- Browser-local save/load for authoritative state and domain-event history
+- Data-driven authored abilities:
+  - Archer: projected shot, projected shield, and guard support
+  - Lancer: high-speed thrust, battle continuation, and sweeping strike
+- Noble-phantasm state machine: hidden → preparing → ready → released/interrupted → cooldown
+- Damage, movement, displacement, and command-seal interruption rules
+- Command-seal mana infusion can finish an active preparation
+- Vitest coverage for movement, combat, contracts, scenario progression, abilities, interruption, release, and replay determinism
 - GitHub Actions CI and GitHub Pages deployment
 
 ## Stack
@@ -63,7 +65,7 @@ React UI / Phaser presentation
           reducers
 ```
 
-`packages/core` has no React, Phaser, browser API, clock, or ambient random-number dependency. The browser is a presentation adapter around one authoritative `GameState`.
+`packages/core` has no React, Phaser, browser API, clock, or ambient random-number dependency. Abilities and noble phantasms emit the same serializable domain events as movement, attacks, contracts, and scenario triggers.
 
 ## Repository status
 
