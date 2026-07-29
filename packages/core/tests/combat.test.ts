@@ -1,0 +1,135 @@
+import { describe, expect, it } from "vitest";
+import {
+  ARCHER_UNIT_ID,
+  LANCER_UNIT_ID,
+  RIN_UNIT_ID,
+  SCHOOL_BATTLE_ID,
+  createSchoolBattleState,
+  processCommand,
+} from "../src";
+
+describe("battle attacks", () => {
+  it("deals deterministic damage and spends the main action", () => {
+    const initial = createSchoolBattleState();
+    const result = processCommand(initial, {
+      type: "battle.attack_unit",
+      battleId: SCHOOL_BATTLE_ID,
+      attackerId: ARCHER_UNIT_ID,
+      targetId: LANCER_UNIT_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.battle.units[LANCER_UNIT_ID]?.health).toBe(122);
+    expect(result.state.battle.units[ARCHER_UNIT_ID]?.mainActionAvailable).toBe(false);
+    expect(result.events.map(event => event.type)).toEqual([
+      "battle.attack_started",
+      "battle.main_action_spent",
+      "battle.damage_dealt",
+    ]);
+  });
+
+  it("triggers one counterattack when the target is adjacent", () => {
+    const initial = createSchoolBattleState();
+    const adjacent = {
+      ...initial,
+      battle: {
+        ...initial.battle,
+        units: {
+          ...initial.battle.units,
+          [ARCHER_UNIT_ID]: {
+            ...initial.battle.units[ARCHER_UNIT_ID]!,
+            position: { q: 5, r: 2 },
+          },
+        },
+      },
+    };
+
+    const result = processCommand(adjacent, {
+      type: "battle.attack_unit",
+      battleId: SCHOOL_BATTLE_ID,
+      attackerId: ARCHER_UNIT_ID,
+      targetId: LANCER_UNIT_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.battle.units[ARCHER_UNIT_ID]?.health).toBe(94);
+    expect(result.state.battle.units[LANCER_UNIT_ID]?.reactionAvailable).toBe(false);
+    expect(result.events.filter(event => event.type === "battle.attack_started")).toHaveLength(2);
+  });
+
+  it("rejects friendly fire", () => {
+    const result = processCommand(createSchoolBattleState(), {
+      type: "battle.attack_unit",
+      battleId: SCHOOL_BATTLE_ID,
+      attackerId: ARCHER_UNIT_ID,
+      targetId: RIN_UNIT_ID,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe("friendly_target");
+  });
+
+  it("defeats a target and prevents its counterattack", () => {
+    const initial = createSchoolBattleState();
+    const fragileTarget = {
+      ...initial,
+      battle: {
+        ...initial.battle,
+        units: {
+          ...initial.battle.units,
+          [LANCER_UNIT_ID]: {
+            ...initial.battle.units[LANCER_UNIT_ID]!,
+            health: 1,
+          },
+        },
+      },
+    };
+
+    const result = processCommand(fragileTarget, {
+      type: "battle.attack_unit",
+      battleId: SCHOOL_BATTLE_ID,
+      attackerId: ARCHER_UNIT_ID,
+      targetId: LANCER_UNIT_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.battle.units[LANCER_UNIT_ID]?.defeated).toBe(true);
+    expect(result.events.at(-1)?.type).toBe("battle.unit_defeated");
+    expect(result.events.some(event => event.type === "battle.reaction_spent")).toBe(false);
+  });
+
+  it("skips defeated units when advancing initiative", () => {
+    const initial = createSchoolBattleState();
+    const defeatedLancer = {
+      ...initial,
+      battle: {
+        ...initial.battle,
+        units: {
+          ...initial.battle.units,
+          [LANCER_UNIT_ID]: {
+            ...initial.battle.units[LANCER_UNIT_ID]!,
+            defeated: true,
+            health: 0,
+          },
+        },
+      },
+    };
+
+    const result = processCommand(defeatedLancer, {
+      type: "battle.end_turn",
+      battleId: SCHOOL_BATTLE_ID,
+      unitId: ARCHER_UNIT_ID,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.battle.activeUnitId).toBe(RIN_UNIT_ID);
+  });
+});

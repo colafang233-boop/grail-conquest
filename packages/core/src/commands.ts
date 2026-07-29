@@ -8,10 +8,20 @@ export interface MoveBattleUnitCommand {
   readonly destination: HexCoord;
 }
 
+export interface AttackBattleUnitCommand {
+  readonly type: "battle.attack_unit";
+  readonly battleId: BattleId;
+  readonly attackerId: UnitId;
+  readonly targetId: UnitId;
+}
+
 export interface EndBattleTurnCommand {
   readonly type: "battle.end_turn";
   readonly battleId: BattleId;
   readonly unitId: UnitId;
 }
 
-export type GameCommand = MoveBattleUnitCommand | EndBattleTurnCommand;
+export type GameCommand =
+  | MoveBattleUnitCommand
+  | AttackBattleUnitCommand
+  | EndBattleTurnCommand;
