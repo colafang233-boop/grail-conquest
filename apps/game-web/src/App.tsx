@@ -2,6 +2,7 @@ import { BattlePanel } from "./components/BattlePanel";
 import { GameCanvas } from "./components/GameCanvas";
 import { ScenarioOverlay } from "./ScenarioOverlay";
 import { useScenarioController } from "./useScenarioController";
+import "./scenario.css";
 
 export default function App() {
   useScenarioController();
