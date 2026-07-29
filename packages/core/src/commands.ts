@@ -1,5 +1,6 @@
 import type { HexCoord } from "./hex";
-import type { BattleId, UnitId } from "./ids";
+import type { BattleId, FactionId, UnitId } from "./ids";
+import type { CommandSealEffect } from "./state";
 
 export interface MoveBattleUnitCommand {
   readonly type: "battle.move_unit";
@@ -21,7 +22,22 @@ export interface EndBattleTurnCommand {
   readonly unitId: UnitId;
 }
 
+export interface TransferManaCommand {
+  readonly type: "contract.transfer_mana";
+  readonly battleId: BattleId;
+  readonly factionId: FactionId;
+}
+
+export interface UseCommandSealCommand {
+  readonly type: "contract.use_command_seal";
+  readonly battleId: BattleId;
+  readonly factionId: FactionId;
+  readonly effect: CommandSealEffect;
+}
+
 export type GameCommand =
   | MoveBattleUnitCommand
   | AttackBattleUnitCommand
-  | EndBattleTurnCommand;
+  | EndBattleTurnCommand
+  | TransferManaCommand
+  | UseCommandSealCommand;

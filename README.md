@@ -13,7 +13,11 @@ The first vertical slice deliberately uses placeholder shapes and focuses on arc
 - Phaser battlefield rendering and animation
 - Turn advancement between Archer, Lancer, and a Master placeholder
 - Deterministic attacks, damage, adjacent counterattacks, and unit defeat
-- Vitest coverage for movement, blocking, and turn progression
+- Master protection through Servant guard/interception reactions
+- Tactical mana transfer, contract range, and per-round Servant upkeep
+- Low-mana combat penalties and contract-stability hooks
+- Four command seal effects: recall, extra turn, mana infusion, and reject death
+- Vitest coverage for movement, combat, contract rules, and command seals
 - GitHub Actions CI and GitHub Pages deployment
 
 ## Stack

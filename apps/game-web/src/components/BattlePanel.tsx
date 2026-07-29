@@ -1,18 +1,58 @@
-import { findLegalAttackTargets } from "@grail/core";
+import {
+  TOHSAKA_FACTION_ID,
+  findLegalAttackTargets,
+  hexDistance,
+  type CommandSealEffect,
+} from "@grail/core";
 import { gameEngine } from "../game-engine";
 import { interactionStore } from "../interaction-store";
 import { useGameSnapshot } from "../hooks/useGameSnapshot";
 import { useInteractionMode } from "../hooks/useInteractionMode";
+
+const SEAL_LABELS: Readonly<Record<CommandSealEffect, string>> = {
+  recall: "强制召回",
+  extra_turn: "再次行动",
+  mana_infusion: "魔力灌注",
+  reject_death: "拒绝死亡",
+};
 
 export function BattlePanel() {
   const snapshot = useGameSnapshot();
   const mode = useInteractionMode();
   const battle = snapshot.state.battle;
   const activeUnit = battle.units[battle.activeUnitId];
+  const contract = battle.contracts[TOHSAKA_FACTION_ID];
+  const master = contract ? battle.units[contract.masterId] : undefined;
+  const servant = contract ? battle.units[contract.servantId] : undefined;
 
   if (!activeUnit) return <aside className="battle-panel">当前行动单位不存在。</aside>;
 
   const attackTargets = findLegalAttackTargets(battle, activeUnit.id);
+  const contractDistance = master && servant
+    ? hexDistance(master.position, servant.position)
+    : undefined;
+  const guardReady = Boolean(
+    contract &&
+    master &&
+    servant &&
+    !master.defeated &&
+    !servant.defeated &&
+    servant.reactionAvailable &&
+    contractDistance !== undefined &&
+    contractDistance <= contract.guardRange,
+  );
+  const transferAvailable = Boolean(
+    contract &&
+    master &&
+    servant &&
+    activeUnit.id === master.id &&
+    activeUnit.mainActionAvailable &&
+    master.mana > 0 &&
+    servant.mana < servant.maxMana &&
+    contractDistance !== undefined &&
+    contractDistance <= contract.transferRange,
+  );
+
   const endTurn = () => {
     interactionStore.setMode("move");
     gameEngine.dispatch({
@@ -22,12 +62,33 @@ export function BattlePanel() {
     });
   };
 
-  const recentEvents = snapshot.eventLog.slice(-8).reverse();
+  const transferMana = () => {
+    if (!contract) return;
+    interactionStore.setMode("move");
+    gameEngine.dispatch({
+      type: "contract.transfer_mana",
+      battleId: battle.id,
+      factionId: contract.factionId,
+    });
+  };
+
+  const useCommandSeal = (effect: CommandSealEffect) => {
+    if (!contract) return;
+    interactionStore.setMode("move");
+    gameEngine.dispatch({
+      type: "contract.use_command_seal",
+      battleId: battle.id,
+      factionId: contract.factionId,
+      effect,
+    });
+  };
+
+  const recentEvents = snapshot.eventLog.slice(-10).reverse();
 
   return (
     <aside className="battle-panel">
       <div className="panel-heading">
-        <p className="eyebrow">SCHOOL NIGHT · COMBAT SLICE</p>
+        <p className="eyebrow">SCHOOL NIGHT · CONTRACT SLICE</p>
         <h2>战术终端</h2>
       </div>
 
@@ -48,6 +109,9 @@ export function BattlePanel() {
           <div><dt>移动</dt><dd>{activeUnit.remainingMovement} / {activeUnit.movement}</dd></div>
           <div><dt>主行动</dt><dd>{activeUnit.mainActionAvailable ? "可用" : "已消耗"}</dd></div>
           <div><dt>反应</dt><dd>{activeUnit.reactionAvailable ? "待命" : "已消耗"}</dd></div>
+          {activeUnit.role === "servant" && (
+            <div><dt>供魔状态</dt><dd>{activeUnit.lowMana ? "低魔力 · 攻击-25%" : "稳定"}</dd></div>
+          )}
         </dl>
       </section>
 
@@ -69,6 +133,67 @@ export function BattlePanel() {
         </button>
       </div>
 
+      {contract && master && servant && (
+        <section className="contract-card">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">MASTER–SERVANT CONTRACT</p>
+              <h3>契约回路</h3>
+            </div>
+            <span className={guardReady ? "contract-status ready" : "contract-status"}>
+              {guardReady ? "护卫待命" : "护卫失效"}
+            </span>
+          </div>
+
+          <div className="contract-pair">
+            <div><span>Master</span><strong>{master.name}</strong><small>魔力 {master.mana}</small></div>
+            <div className="contract-link">距离 {contractDistance ?? "—"}</div>
+            <div><span>Servant</span><strong>{servant.name}</strong><small>魔力 {servant.mana}</small></div>
+          </div>
+
+          <dl className="contract-metrics">
+            <div><dt>稳定度</dt><dd>{contract.stability}</dd></div>
+            <div><dt>信赖</dt><dd>{contract.trust}</dd></div>
+            <div><dt>每轮维持</dt><dd>{contract.upkeep} MP</dd></div>
+          </dl>
+
+          <button
+            type="button"
+            className="mana-action"
+            disabled={!transferAvailable}
+            onClick={transferMana}
+          >
+            供魔 +{contract.transferAmount} MP
+          </button>
+
+          <div className="seal-heading">
+            <span>令咒</span>
+            <div className="seal-marks" aria-label={`剩余 ${contract.commandSeals} 划令咒`}>
+              {Array.from({ length: 3 }, (_, index) => (
+                <i key={index} className={index < contract.commandSeals ? "active" : ""} />
+              ))}
+            </div>
+          </div>
+
+          <div className="seal-grid">
+            {(Object.keys(SEAL_LABELS) as CommandSealEffect[]).map(effect => (
+              <button
+                key={effect}
+                type="button"
+                disabled={contract.commandSeals <= 0}
+                onClick={() => useCommandSeal(effect)}
+              >
+                {SEAL_LABELS[effect]}
+              </button>
+            ))}
+          </div>
+
+          {servant.deathWardActive && (
+            <p className="ward-notice">令咒效果：下一次致命伤害将被拒绝。</p>
+          )}
+        </section>
+      )}
+
       <button type="button" className="primary-action" onClick={endTurn}>结束行动</button>
 
       {snapshot.lastError && (
@@ -78,7 +203,7 @@ export function BattlePanel() {
       <section className="event-log">
         <div className="section-title"><h3>领域事件</h3><span>{snapshot.eventLog.length}</span></div>
         {recentEvents.length === 0 ? (
-          <p className="muted">移动后切换“攻击”，点击红色高亮敌人。</p>
+          <p className="muted">让 Lancer 接近 Master，测试护卫；轮到凛时可以向 Archer 供魔。</p>
         ) : (
           <ol>
             {recentEvents.map(event => (

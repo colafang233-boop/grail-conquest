@@ -6,7 +6,10 @@ export function calculateDamage(
   attacker: BattleUnitState,
   target: BattleUnitState,
 ): number {
-  return Math.max(1, attacker.attackPower - target.defense);
+  const attackPower = attacker.lowMana && attacker.role === "servant"
+    ? Math.max(1, Math.floor(attacker.attackPower * 0.75))
+    : attacker.attackPower;
+  return Math.max(1, attackPower - target.defense);
 }
 
 export function isAttackInRange(
