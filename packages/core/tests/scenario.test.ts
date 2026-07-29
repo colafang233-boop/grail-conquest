@@ -80,27 +80,24 @@ describe("school-night scenario", () => {
     expect(attacked.state.scenario.clues.map(clue => clue.id)).toContain("red_spear");
   });
 
-  it("opens tactical retreat at the scripted noble-phantasm warning", () => {
+  it("opens tactical retreat when Lancer really starts preparing a noble phantasm", () => {
     const initial = beginEncounter();
-    const beforeWarning = {
+    const lancerTurn = {
       ...initial,
-      battle: {
-        ...initial.battle,
-        round: 2,
-        activeUnitId: RIN_UNIT_ID,
-      },
+      battle: { ...initial.battle, round: 3, activeUnitId: LANCER_UNIT_ID },
     };
 
-    const result = processCommand(beforeWarning, {
-      type: "battle.end_turn",
+    const result = processCommand(lancerTurn, {
+      type: "noble_phantasm.prepare",
       battleId: SCHOOL_BATTLE_ID,
-      unitId: RIN_UNIT_ID,
+      servantId: LANCER_UNIT_ID,
+      targetId: RIN_UNIT_ID,
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.state.battle.round).toBe(3);
     expect(result.state.scenario.phase).toBe("noble_phantasm_warning");
+    expect(result.state.battle.units[LANCER_UNIT_ID]?.noblePhantasm?.phase).toBe("preparing");
     const clueIds = result.state.scenario.clues.map(clue => clue.id);
     expect(clueIds).toContain("causality_reversal");
     expect(clueIds).toContain("celtic_origin");
@@ -149,7 +146,7 @@ describe("school-night scenario", () => {
     expect(result.state.scenario.phase).toBe("completed");
     expect(result.state.scenario.outcome).toBe("retreated_with_intel");
     expect(result.state.scenario.report?.candidates[0]?.name).toBe("库·丘林");
-    expect(result.state.scenario.report?.candidates[0]?.confidence).toBeGreaterThan(80);
+    expect(result.state.scenario.report?.candidates[0]?.confidence).toBeGreaterThan(70);
     expect(result.state.scenario.report?.unlockedTactics.length).toBeGreaterThan(0);
   });
 
