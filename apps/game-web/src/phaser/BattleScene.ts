@@ -130,7 +130,14 @@ export class BattleScene extends Phaser.Scene {
 
   private requestMove(destination: HexCoord): void {
     if (interactionStore.getSnapshot() !== "move") return;
-    const battle = gameEngine.getSnapshot().state.battle;
+    const snapshot = gameEngine.getSnapshot();
+    const battle = snapshot.state.battle;
+    const activeUnit = battle.units[battle.activeUnitId];
+    if (
+      snapshot.state.scenario.phase === "investigation" ||
+      snapshot.state.scenario.phase === "completed" ||
+      activeUnit?.factionId !== TOHSAKA_FACTION_ID
+    ) return;
     gameEngine.dispatch({
       type: "battle.move_unit",
       battleId: battle.id,
@@ -141,7 +148,14 @@ export class BattleScene extends Phaser.Scene {
 
   private requestAttack(targetId: UnitId): void {
     if (interactionStore.getSnapshot() !== "attack") return;
-    const battle = gameEngine.getSnapshot().state.battle;
+    const snapshot = gameEngine.getSnapshot();
+    const battle = snapshot.state.battle;
+    const activeUnit = battle.units[battle.activeUnitId];
+    if (
+      snapshot.state.scenario.phase === "investigation" ||
+      snapshot.state.scenario.phase === "completed" ||
+      activeUnit?.factionId !== TOHSAKA_FACTION_ID
+    ) return;
     const result = gameEngine.dispatch({
       type: "battle.attack_unit",
       battleId: battle.id,
@@ -156,9 +170,13 @@ export class BattleScene extends Phaser.Scene {
     const snapshot = gameEngine.getSnapshot();
     const battle = snapshot.state.battle;
     const mode: InteractionMode = interactionStore.getSnapshot();
-    const reachable = mode === "move" ? findReachableHexes(battle, battle.activeUnitId) : {};
+    const activeUnit = battle.units[battle.activeUnitId];
+    const playerCanAct = activeUnit?.factionId === TOHSAKA_FACTION_ID &&
+      snapshot.state.scenario.phase !== "investigation" &&
+      snapshot.state.scenario.phase !== "completed";
+    const reachable = playerCanAct && mode === "move" ? findReachableHexes(battle, battle.activeUnitId) : {};
     const targets = new Set(
-      mode === "attack"
+      playerCanAct && mode === "attack"
         ? findLegalAttackTargets(battle, battle.activeUnitId).map(unit => unit.id)
         : [],
     );
@@ -244,6 +262,12 @@ export class BattleScene extends Phaser.Scene {
       case "contract.death_rejected":
         await this.presentDeathRejected(event.servantId);
         return;
+      case "scenario.noble_phantasm_warning":
+        await this.presentPulse(event.enemyId, 1.24, 240);
+        return;
+      case "scenario.encounter_started":
+      case "scenario.clue_discovered":
+      case "scenario.completed":
       case "battle.main_action_spent":
       case "battle.reaction_spent":
       case "contract.stability_changed":
