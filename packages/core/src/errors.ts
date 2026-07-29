@@ -44,7 +44,14 @@ export type DomainErrorCode =
   | "strategy_leyline_unavailable"
   | "strategy_leyline_already_controlled"
   | "strategy_rest_unavailable"
-  | "strategy_encounter_unavailable";
+  | "strategy_encounter_unavailable"
+  | "operations_not_active"
+  | "operations_phase_invalid"
+  | "operations_destination_required"
+  | "operations_order_missing"
+  | "operations_order_invalid"
+  | "operations_encounter_missing"
+  | "operations_encounter_mandatory";
 
 export interface DomainError {
   readonly code: DomainErrorCode;
