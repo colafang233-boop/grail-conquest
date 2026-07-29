@@ -4,7 +4,9 @@ import {
   LANCER_UNIT_ID,
   RIN_UNIT_ID,
   TOHSAKA_FACTION_ID,
+  findLegalAbilityTargets,
   findLegalAttackTargets,
+  findLegalNoblePhantasmTargets,
   findReachableHexes,
   hexDistance,
   hexKey,
@@ -14,7 +16,7 @@ import {
   type UnitId,
 } from "@grail/core";
 import { gameEngine } from "../game-engine";
-import { interactionStore, type InteractionMode } from "../interaction-store";
+import { interactionStore, type InteractionState } from "../interaction-store";
 import { createHexPoints, hexToPixel } from "./hex-layout";
 import { PresentationQueue } from "./PresentationQueue";
 
@@ -81,7 +83,7 @@ export class BattleScene extends Phaser.Scene {
       if (!tile.blocked) {
         polygon.setInteractive({ useHandCursor: true });
         polygon.on(Phaser.Input.Events.POINTER_OVER, () => {
-          if (interactionStore.getSnapshot() === "move") {
+          if (interactionStore.getSnapshot().type === "move") {
             polygon.setStrokeStyle(3, 0xd1b06b, 1);
           }
         });
@@ -100,7 +102,7 @@ export class BattleScene extends Phaser.Scene {
       const marker = this.add.circle(0, 0, 21, this.unitColor(unit));
       marker.setStrokeStyle(3, 0xefe3c7, 1);
       marker.setInteractive({ useHandCursor: true });
-      marker.on(Phaser.Input.Events.POINTER_DOWN, () => this.requestAttack(unit.id));
+      marker.on(Phaser.Input.Events.POINTER_DOWN, () => this.requestUnitInteraction(unit.id));
 
       const sigil = this.add
         .text(0, -1, unit.role === "master" ? "M" : unit.id === ARCHER_UNIT_ID ? "A" : "L", {
@@ -128,16 +130,19 @@ export class BattleScene extends Phaser.Scene {
     this.refreshUnitViews();
   }
 
-  private requestMove(destination: HexCoord): void {
-    if (interactionStore.getSnapshot() !== "move") return;
+  private canPlayerAct(): boolean {
     const snapshot = gameEngine.getSnapshot();
-    const battle = snapshot.state.battle;
-    const activeUnit = battle.units[battle.activeUnitId];
-    if (
-      snapshot.state.scenario.phase === "investigation" ||
-      snapshot.state.scenario.phase === "completed" ||
-      activeUnit?.factionId !== TOHSAKA_FACTION_ID
-    ) return;
+    const activeUnit = snapshot.state.battle.units[snapshot.state.battle.activeUnitId];
+    return Boolean(
+      activeUnit?.factionId === TOHSAKA_FACTION_ID &&
+      snapshot.state.scenario.phase !== "investigation" &&
+      snapshot.state.scenario.phase !== "completed",
+    );
+  }
+
+  private requestMove(destination: HexCoord): void {
+    if (interactionStore.getSnapshot().type !== "move" || !this.canPlayerAct()) return;
+    const battle = gameEngine.getSnapshot().state.battle;
     gameEngine.dispatch({
       type: "battle.move_unit",
       battleId: battle.id,
@@ -146,52 +151,75 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  private requestAttack(targetId: UnitId): void {
-    if (interactionStore.getSnapshot() !== "attack") return;
-    const snapshot = gameEngine.getSnapshot();
-    const battle = snapshot.state.battle;
-    const activeUnit = battle.units[battle.activeUnitId];
-    if (
-      snapshot.state.scenario.phase === "investigation" ||
-      snapshot.state.scenario.phase === "completed" ||
-      activeUnit?.factionId !== TOHSAKA_FACTION_ID
-    ) return;
-    const result = gameEngine.dispatch({
-      type: "battle.attack_unit",
-      battleId: battle.id,
-      attackerId: battle.activeUnitId,
-      targetId,
-    });
+  private requestUnitInteraction(targetId: UnitId): void {
+    if (!this.canPlayerAct()) return;
+    const mode = interactionStore.getSnapshot();
+    const battle = gameEngine.getSnapshot().state.battle;
+    let result;
 
-    if (result.ok) interactionStore.setMode("move");
+    switch (mode.type) {
+      case "attack":
+        result = gameEngine.dispatch({
+          type: "battle.attack_unit",
+          battleId: battle.id,
+          attackerId: battle.activeUnitId,
+          targetId,
+        });
+        break;
+      case "ability":
+        result = gameEngine.dispatch({
+          type: "ability.use",
+          battleId: battle.id,
+          actorId: battle.activeUnitId,
+          abilityId: mode.abilityId,
+          targetId,
+        });
+        break;
+      case "noble_phantasm":
+        result = gameEngine.dispatch({
+          type: "noble_phantasm.prepare",
+          battleId: battle.id,
+          servantId: battle.activeUnitId,
+          targetId,
+        });
+        break;
+      case "move":
+        return;
+    }
+
+    if (result.ok) interactionStore.setMode({ type: "move" });
   }
 
   private refreshInteractionHighlights(): void {
     const snapshot = gameEngine.getSnapshot();
     const battle = snapshot.state.battle;
-    const mode: InteractionMode = interactionStore.getSnapshot();
+    const mode: InteractionState = interactionStore.getSnapshot();
     const activeUnit = battle.units[battle.activeUnitId];
-    const playerCanAct = activeUnit?.factionId === TOHSAKA_FACTION_ID &&
-      snapshot.state.scenario.phase !== "investigation" &&
-      snapshot.state.scenario.phase !== "completed";
-    const reachable = playerCanAct && mode === "move" ? findReachableHexes(battle, battle.activeUnitId) : {};
-    const targets = new Set(
-      playerCanAct && mode === "attack"
-        ? findLegalAttackTargets(battle, battle.activeUnitId).map(unit => unit.id)
-        : [],
-    );
+    const playerCanAct = this.canPlayerAct();
+    const reachable = playerCanAct && mode.type === "move" ? findReachableHexes(battle, battle.activeUnitId) : {};
+    const targetIds = new Set<UnitId>();
+
+    if (playerCanAct && activeUnit) {
+      if (mode.type === "attack") {
+        for (const unit of findLegalAttackTargets(battle, activeUnit.id)) targetIds.add(unit.id);
+      } else if (mode.type === "ability") {
+        for (const unit of findLegalAbilityTargets(battle, activeUnit.id, mode.abilityId)) targetIds.add(unit.id);
+      } else if (mode.type === "noble_phantasm") {
+        for (const unit of findLegalNoblePhantasmTargets(battle, activeUnit.id)) targetIds.add(unit.id);
+      }
+    }
+
     const contract = battle.contracts[TOHSAKA_FACTION_ID];
     const master = contract ? battle.units[contract.masterId] : undefined;
     const servant = contract ? battle.units[contract.servantId] : undefined;
     const protectedMasterId = contract && master && servant && !servant.defeated &&
-      servant.reactionAvailable && hexDistance(master.position, servant.position) <= contract.guardRange
+      servant.reactionAvailable && hexDistance(master.position, servant.position) <= contract.guardRange + servant.guardBonus
       ? master.id
       : undefined;
 
     for (const [key, polygon] of this.tileViews) {
       const tile = battle.tiles[key];
       if (!tile) continue;
-
       if (tile.blocked) polygon.setStrokeStyle(1.5, 0x3e4655, 0.75);
       else if (reachable[key]) polygon.setStrokeStyle(2.5, 0x73a7b8, 0.95);
       else polygon.setStrokeStyle(1.5, 0x526277, 0.75);
@@ -199,23 +227,34 @@ export class BattleScene extends Phaser.Scene {
 
     for (const [unitId, view] of this.unitViews) {
       const unit = battle.units[unitId];
-      if (targets.has(unitId)) view.marker.setStrokeStyle(4, 0xe46e78, 1);
-      else if (unitId === battle.activeUnitId) view.marker.setStrokeStyle(4, 0xf4c76a, 1);
-      else if (unit?.deathWardActive) view.marker.setStrokeStyle(4, 0xb78cf0, 1);
-      else if (unitId === protectedMasterId) view.marker.setStrokeStyle(4, 0x71c8bd, 1);
-      else view.marker.setStrokeStyle(3, 0xefe3c7, 1);
+      if (targetIds.has(unitId)) {
+        const color = mode.type === "noble_phantasm" ? 0xe8a15b : mode.type === "ability" ? 0x8d78d8 : 0xe46e78;
+        view.marker.setStrokeStyle(4, color, 1);
+      } else if (unit?.noblePhantasm?.phase === "preparing") {
+        view.marker.setStrokeStyle(5, 0xd84955, 1);
+      } else if (unit?.noblePhantasm?.phase === "ready") {
+        view.marker.setStrokeStyle(5, 0xffc857, 1);
+      } else if (unitId === battle.activeUnitId) {
+        view.marker.setStrokeStyle(4, 0xf4c76a, 1);
+      } else if (unit?.deathWardActive || unit?.battleContinuationActive) {
+        view.marker.setStrokeStyle(4, 0xb78cf0, 1);
+      } else if (unit?.barrier && unit.barrier > 0) {
+        view.marker.setStrokeStyle(4, 0x65b9d2, 1);
+      } else if (unitId === protectedMasterId) {
+        view.marker.setStrokeStyle(4, 0x71c8bd, 1);
+      } else {
+        view.marker.setStrokeStyle(3, 0xefe3c7, 1);
+      }
     }
   }
 
   private refreshUnitViews(): void {
     const battle = gameEngine.getSnapshot().state.battle;
-
     for (const [unitId, view] of this.unitViews) {
       const unit = battle.units[unitId];
       if (!unit) continue;
       view.container.setAlpha(unit.defeated ? 0.28 : 1);
     }
-
     this.refreshInteractionHighlights();
   }
 
@@ -224,10 +263,14 @@ export class BattleScene extends Phaser.Scene {
       case "battle.unit_moved":
         await this.presentMovement(event.unitId, event.path);
         return;
+      case "battle.unit_displaced":
+        await this.presentMovement(event.unitId, [event.to]);
+        return;
       case "battle.attack_started":
         await this.presentAttack(event.attackerId, event.targetId);
         return;
       case "battle.damage_dealt":
+      case "battle.barrier_absorbed":
         await this.presentDamage(event.targetId);
         return;
       case "battle.unit_defeated":
@@ -235,6 +278,33 @@ export class BattleScene extends Phaser.Scene {
         return;
       case "battle.turn_advanced":
         await this.presentTurnAdvance(event.activeUnitId);
+        return;
+      case "battle.mana_spent":
+        await this.presentPulse(event.unitId, 1.08, 100);
+        return;
+      case "ability.used":
+        await this.presentPulse(event.actorId, 1.14, 130);
+        return;
+      case "ability.barrier_applied":
+        await this.presentPulse(event.targetId, 1.2, 180);
+        return;
+      case "ability.guard_support_activated":
+      case "ability.battle_continuation_activated":
+      case "ability.battle_continuation_triggered":
+        await this.presentPulse(event.servantId, 1.22, 190);
+        return;
+      case "noble_phantasm.preparation_started":
+        await this.presentPulse(event.servantId, 1.28, 240);
+        return;
+      case "noble_phantasm.charge_advanced":
+      case "noble_phantasm.ready":
+        await this.presentPulse(event.servantId, 1.2, 180);
+        return;
+      case "noble_phantasm.released":
+        await this.presentAttack(event.servantId, event.targetId);
+        return;
+      case "noble_phantasm.interrupted":
+        await this.presentInterrupted(event.servantId);
         return;
       case "contract.master_guarded":
         await this.presentGuard(event.guardianId, event.masterId);
@@ -263,14 +333,15 @@ export class BattleScene extends Phaser.Scene {
         await this.presentDeathRejected(event.servantId);
         return;
       case "scenario.noble_phantasm_warning":
-        await this.presentPulse(event.enemyId, 1.24, 240);
+        await this.presentPulse(event.enemyId, 1.3, 260);
         return;
+      case "battle.main_action_spent":
+      case "battle.reaction_spent":
+      case "noble_phantasm.cooldown_changed":
+      case "contract.stability_changed":
       case "scenario.encounter_started":
       case "scenario.clue_discovered":
       case "scenario.completed":
-      case "battle.main_action_spent":
-      case "battle.reaction_spent":
-      case "contract.stability_changed":
         return;
     }
   }
@@ -278,7 +349,6 @@ export class BattleScene extends Phaser.Scene {
   private async presentMovement(unitId: UnitId, path: readonly HexCoord[]): Promise<void> {
     const view = this.unitViews.get(unitId);
     if (!view) return;
-
     for (const coord of path) {
       const destination = hexToPixel(coord, HEX_SIZE, OFFSET_X, OFFSET_Y);
       await new Promise<void>(resolve => {
@@ -298,18 +368,15 @@ export class BattleScene extends Phaser.Scene {
     const attacker = this.unitViews.get(attackerId);
     const target = this.unitViews.get(targetId);
     if (!attacker || !target) return;
-
     const origin = { x: attacker.container.x, y: attacker.container.y };
     const dx = target.container.x - origin.x;
     const dy = target.container.y - origin.y;
     const length = Math.hypot(dx, dy) || 1;
-    const lunge = 18;
-
     await new Promise<void>(resolve => {
       this.tweens.add({
         targets: attacker.container,
-        x: origin.x + (dx / length) * lunge,
-        y: origin.y + (dy / length) * lunge,
+        x: origin.x + (dx / length) * 18,
+        y: origin.y + (dy / length) * 18,
         duration: 90,
         yoyo: true,
         onComplete: () => resolve(),
@@ -320,7 +387,6 @@ export class BattleScene extends Phaser.Scene {
   private async presentDamage(targetId: UnitId): Promise<void> {
     const target = this.unitViews.get(targetId);
     if (!target) return;
-
     await new Promise<void>(resolve => {
       this.tweens.add({
         targets: target.marker,
@@ -336,7 +402,6 @@ export class BattleScene extends Phaser.Scene {
   private async presentDefeat(unitId: UnitId): Promise<void> {
     const view = this.unitViews.get(unitId);
     if (!view) return;
-
     await new Promise<void>(resolve => {
       this.tweens.add({
         targets: view.container,
@@ -357,12 +422,10 @@ export class BattleScene extends Phaser.Scene {
     const guardian = this.unitViews.get(guardianId);
     const master = this.unitViews.get(masterId);
     if (!guardian || !master) return;
-
     const origin = { x: guardian.container.x, y: guardian.container.y };
     const dx = master.container.x - origin.x;
     const dy = master.container.y - origin.y;
     const length = Math.hypot(dx, dy) || 1;
-
     await new Promise<void>(resolve => {
       this.tweens.add({
         targets: guardian.container,
@@ -406,6 +469,21 @@ export class BattleScene extends Phaser.Scene {
     if (!view) return;
     view.container.setAlpha(1).setScale(1);
     await this.presentPulse(servantId, 1.28, 220);
+  }
+
+  private async presentInterrupted(servantId: UnitId): Promise<void> {
+    const view = this.unitViews.get(servantId);
+    if (!view) return;
+    await new Promise<void>(resolve => {
+      this.tweens.add({
+        targets: view.container,
+        x: view.container.x + 8,
+        duration: 45,
+        yoyo: true,
+        repeat: 3,
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   private async presentPulse(unitId: UnitId, scale = 1.12, duration = 140): Promise<void> {
