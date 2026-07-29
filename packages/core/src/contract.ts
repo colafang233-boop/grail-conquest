@@ -27,7 +27,7 @@ export function findGuardingServant(
   if (!contract || contract.masterId !== master.id) return undefined;
   const servant = battle.units[contract.servantId];
   if (!servant || servant.defeated || !servant.reactionAvailable) return undefined;
-  return hexDistance(master.position, servant.position) <= contract.guardRange
+  return hexDistance(master.position, servant.position) <= contract.guardRange + servant.guardBonus
     ? servant
     : undefined;
 }

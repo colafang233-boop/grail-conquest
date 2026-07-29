@@ -48,6 +48,13 @@ const CLUE_LIBRARY: Readonly<Record<string, Omit<IntelClue, "discoveredAtSequenc
     confidence: 70,
     source: "远坂术式比对",
   },
+  true_name_release: {
+    id: "true_name_release",
+    category: "noble_phantasm",
+    label: "真名解放语与 Gáe Bolg 的传说记录高度一致",
+    confidence: 100,
+    source: "宝具释放记录",
+  },
 };
 
 export function createInitialScenarioState(): GameState["scenario"] {
@@ -78,8 +85,9 @@ export function evaluateIdentityCandidates(
         lancer_class: 8,
         high_speed: 10,
         red_spear: 18,
-        causality_reversal: 32,
-        celtic_origin: 20,
+        causality_reversal: 26,
+        celtic_origin: 18,
+        true_name_release: 45,
       }),
     },
     {
@@ -122,6 +130,9 @@ export function buildScenarioReport(
   const unlockedTactics: string[] = [];
   if (ids.has("causality_reversal")) {
     unlockedTactics.push("下一次遭遇将提前显示因果类宝具预警；常规闪避不再被标记为可靠方案。");
+  }
+  if (ids.has("true_name_release")) {
+    unlockedTactics.push("已确认宝具真名特征，解锁针对 Gáe Bolg 的绝对防御与替身方案。");
   }
   if (ids.has("red_spear")) {
     unlockedTactics.push("红色长枪特征已进入真名筛选器，可缩小候选英灵范围。");
@@ -172,13 +183,27 @@ export function evaluateScenarioTriggers(
     addClue("lancer_class");
   }
 
+  let lancerPrepared = false;
   for (const event of commandEvents) {
     if (event.type === "battle.unit_moved" && event.unitId === LANCER_UNIT_ID) addClue("high_speed");
+    if (event.type === "ability.used" && event.actorId === LANCER_UNIT_ID && event.abilityId === "lancer_high_speed_thrust") {
+      addClue("high_speed");
+      addClue("red_spear");
+    }
     if (
       event.type === "battle.attack_started" &&
       event.attackerId === LANCER_UNIT_ID &&
-      event.kind === "normal"
+      (event.kind === "normal" || event.kind === "ability")
     ) addClue("red_spear");
+    if (event.type === "noble_phantasm.preparation_started" && event.servantId === LANCER_UNIT_ID) {
+      lancerPrepared = true;
+      addClue("causality_reversal");
+      addClue("celtic_origin");
+    }
+    if (event.type === "noble_phantasm.released" && event.servantId === LANCER_UNIT_ID) {
+      addClue("true_name_release");
+      addClue("red_spear");
+    }
   }
 
   const allClues = [...after.scenario.clues, ...pendingClues];
@@ -209,19 +234,14 @@ export function evaluateScenarioTriggers(
     return events;
   }
 
-  if (
-    after.scenario.phase === "encounter" &&
-    after.battle.round >= after.scenario.warningRound
-  ) {
+  if (after.scenario.phase === "encounter" && lancerPrepared) {
     events.push({
       type: "scenario.noble_phantasm_warning",
       sequence: ++sequence,
       scenarioId: after.scenario.id,
       enemyId: LANCER_UNIT_ID,
-      message: "检测到异常魔力收束：敌方正在准备疑似因果干涉型宝具。",
+      message: "检测到真实宝具准备：目标已锁定，必须在其下次行动前打断或撤离。",
     });
-    addClue("causality_reversal");
-    addClue("celtic_origin");
   }
 
   return events;

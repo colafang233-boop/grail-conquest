@@ -6,6 +6,32 @@ export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "rej
 export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
 export type ScenarioOutcome = "retreated_with_intel" | "enemy_defeated" | "master_defeated" | "servant_defeated";
 
+export type AbilityId =
+  | "archer_projected_shot"
+  | "archer_projected_shield"
+  | "archer_guard_support"
+  | "lancer_high_speed_thrust"
+  | "lancer_battle_continuation"
+  | "lancer_sweeping_strike";
+
+export type NoblePhantasmPhase =
+  | "hidden"
+  | "preparing"
+  | "ready"
+  | "released"
+  | "interrupted"
+  | "cooldown";
+
+export interface NoblePhantasmState {
+  readonly definitionId: string;
+  readonly phase: NoblePhantasmPhase;
+  readonly charge: number;
+  readonly requiredCharge: number;
+  readonly cooldownRemaining: number;
+  readonly interruptThreshold: number;
+  readonly targetId?: UnitId;
+}
+
 export interface IntelClue {
   readonly id: string;
   readonly category: "class" | "weapon" | "combat_style" | "origin" | "noble_phantasm";
@@ -66,6 +92,11 @@ export interface BattleUnitState {
   readonly defeated: boolean;
   readonly lowMana: boolean;
   readonly deathWardActive: boolean;
+  readonly abilityIds: readonly AbilityId[];
+  readonly barrier: number;
+  readonly guardBonus: number;
+  readonly battleContinuationActive: boolean;
+  readonly noblePhantasm?: NoblePhantasmState;
 }
 
 export interface ContractState {

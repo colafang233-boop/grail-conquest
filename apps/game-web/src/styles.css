@@ -19,7 +19,7 @@ body {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 380px;
 }
 
 .battle-stage { padding: 24px 28px 30px; min-width: 0; }
@@ -45,7 +45,7 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
 .game-canvas canvas { display: block; }
 
 .battle-panel { padding: 28px 22px; border-left: 1px solid #303949; background: rgba(10, 14, 21, 0.93); backdrop-filter: blur(18px); }
-.panel-heading h2, .event-log h3, .unit-card h3, .contract-card h3 { margin: 4px 0 0; }
+.panel-heading h2, .event-log h3, .unit-card h3, .contract-card h3, .ability-card h3 { margin: 4px 0 0; }
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
 .metric { padding: 13px; border: 1px solid #303b4b; border-radius: 12px; background: #111824; }
 .metric span { display: block; color: #929ead; font-size: 0.76rem; }
@@ -64,6 +64,31 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
 .action-button.active { border-color: #75a9bd; background: #1b3140; color: #eefbff; }
 .action-button.danger.active { border-color: #c76570; background: #3b1f28; color: #ffe8eb; }
 .action-button:disabled { cursor: not-allowed; opacity: 0.42; }
+
+.ability-card { margin-top: 16px; padding: 16px; border: 1px solid #3f4864; border-radius: 14px; background: linear-gradient(145deg, rgba(23, 31, 48, 0.94), rgba(16, 18, 31, 0.94)); }
+.ability-card .section-title { align-items: flex-start; gap: 12px; }
+.ability-list { display: grid; gap: 8px; margin-top: 13px; }
+.ability-button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 11px; border: 1px solid #3e4b65; border-radius: 10px; color: #d7deea; background: rgba(16, 23, 36, 0.86); cursor: pointer; text-align: left; }
+.ability-button:hover:not(:disabled) { border-color: #6a75a4; background: rgba(35, 40, 65, 0.9); }
+.ability-button.active { border-color: #9584df; background: rgba(72, 58, 119, 0.42); box-shadow: inset 0 0 0 1px rgba(174, 154, 255, 0.18); }
+.ability-button:disabled { cursor: not-allowed; opacity: 0.38; }
+.ability-button span { display: grid; gap: 3px; min-width: 0; }
+.ability-button strong { font-size: 0.84rem; }
+.ability-button small { color: #929db0; font-size: 0.68rem; line-height: 1.35; }
+.ability-button em { color: #b9afd8; font-size: 0.68rem; font-style: normal; white-space: nowrap; }
+
+.noble-card { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid #614552; border-radius: 11px; background: rgba(55, 25, 37, 0.42); }
+.noble-card > div { display: grid; gap: 3px; }
+.noble-card span, .noble-card small { color: #bfa5af; font-size: 0.7rem; }
+.noble-card strong { color: #f0dce1; }
+.noble-card p { margin: 0; color: #bfaeb5; font-size: 0.7rem; line-height: 1.45; }
+.noble-card button { padding: 9px 10px; border: 1px solid #87566a; border-radius: 9px; color: #f3dce4; background: rgba(104, 40, 62, 0.38); cursor: pointer; }
+.noble-card button:disabled { cursor: not-allowed; opacity: 0.36; }
+.noble-card.phase-preparing { border-color: #a34e5d; box-shadow: 0 0 18px rgba(174, 61, 80, 0.18); }
+.noble-card.phase-ready { border-color: #caa455; background: rgba(80, 59, 21, 0.38); }
+.noble-card .release-action { border-color: #dfbd68; color: #1c1204; background: linear-gradient(180deg, #f0d38b, #c99d45); font-weight: 700; }
+.ability-statuses { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.ability-statuses span { padding: 5px 8px; border: 1px solid #4d6f85; border-radius: 999px; color: #aed5e7; background: rgba(35, 82, 105, 0.22); font-size: 0.68rem; }
 
 .contract-card { margin-top: 16px; padding: 16px; border: 1px solid #4a425e; border-radius: 14px; background: linear-gradient(145deg, rgba(36, 28, 49, 0.92), rgba(17, 20, 32, 0.94)); }
 .contract-card .section-title { align-items: flex-start; gap: 12px; }
@@ -115,4 +140,5 @@ h1 { margin: 4px 0 0; font: 600 clamp(1.75rem, 3vw, 2.5rem)/1.05 Georgia, serif;
   .battle-panel { padding: 22px 16px; }
   .contract-pair { grid-template-columns: 1fr; }
   .contract-link { width: fit-content; }
+  .ability-button { grid-template-columns: 1fr; }
 }

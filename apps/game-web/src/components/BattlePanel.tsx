@@ -9,6 +9,7 @@ import { gameEngine } from "../game-engine";
 import { interactionStore } from "../interaction-store";
 import { useGameSnapshot } from "../hooks/useGameSnapshot";
 import { useInteractionMode } from "../hooks/useInteractionMode";
+import { AbilityPalette } from "./AbilityPalette";
 
 const SEAL_LABELS: Readonly<Record<CommandSealEffect, string>> = {
   recall: "强制召回",
@@ -37,34 +38,36 @@ export function BattlePanel() {
 
   const playerTurn = activeUnit.factionId === TOHSAKA_FACTION_ID;
   const battleActive = scenario.phase === "encounter" || scenario.phase === "noble_phantasm_warning";
-  const attackTargets = playerTurn && battleActive ? findLegalAttackTargets(battle, activeUnit.id) : [];
+  const playerCanAct = playerTurn && battleActive;
+  const attackTargets = playerCanAct ? findLegalAttackTargets(battle, activeUnit.id) : [];
   const candidates = evaluateIdentityCandidates(scenario.clues);
   const contractDistance = master && servant ? hexDistance(master.position, servant.position) : undefined;
   const guardReady = Boolean(
     contract && master && servant && !master.defeated && !servant.defeated &&
-    servant.reactionAvailable && contractDistance !== undefined && contractDistance <= contract.guardRange,
+    servant.reactionAvailable && contractDistance !== undefined &&
+    contractDistance <= contract.guardRange + servant.guardBonus,
   );
   const transferAvailable = Boolean(
-    battleActive && playerTurn && contract && master && servant && activeUnit.id === master.id &&
+    playerCanAct && contract && master && servant && activeUnit.id === master.id &&
     activeUnit.mainActionAvailable && master.mana > 0 && servant.mana < servant.maxMana &&
     contractDistance !== undefined && contractDistance <= contract.transferRange,
   );
 
   const endTurn = () => {
-    if (!playerTurn || !battleActive) return;
-    interactionStore.setMode("move");
+    if (!playerCanAct) return;
+    interactionStore.setMode({ type: "move" });
     gameEngine.dispatch({ type: "battle.end_turn", battleId: battle.id, unitId: activeUnit.id });
   };
 
   const transferMana = () => {
     if (!contract) return;
-    interactionStore.setMode("move");
+    interactionStore.setMode({ type: "move" });
     gameEngine.dispatch({ type: "contract.transfer_mana", battleId: battle.id, factionId: contract.factionId });
   };
 
   const useCommandSeal = (effect: CommandSealEffect) => {
     if (!contract || !battleActive) return;
-    interactionStore.setMode("move");
+    interactionStore.setMode({ type: "move" });
     gameEngine.dispatch({
       type: "contract.use_command_seal",
       battleId: battle.id,
@@ -73,12 +76,12 @@ export function BattlePanel() {
     });
   };
 
-  const recentEvents = snapshot.eventLog.slice(-10).reverse();
+  const recentEvents = snapshot.eventLog.slice(-12).reverse();
 
   return (
     <aside className="battle-panel">
       <div className="panel-heading">
-        <p className="eyebrow">SCHOOL NIGHT · AUTHORED SCENARIO</p>
+        <p className="eyebrow">SCHOOL NIGHT · ABILITY SLICE</p>
         <h2>战术终端</h2>
       </div>
 
@@ -118,23 +121,28 @@ export function BattlePanel() {
           {activeUnit.role === "servant" && (
             <div><dt>供魔状态</dt><dd>{activeUnit.lowMana ? "低魔力 · 攻击-25%" : "稳定"}</dd></div>
           )}
+          {activeUnit.barrier > 0 && <div><dt>护盾</dt><dd>{activeUnit.barrier}</dd></div>}
         </dl>
       </section>
 
       <div className="action-grid" aria-label="战斗行动">
         <button
           type="button"
-          className={mode === "move" ? "action-button active" : "action-button"}
-          disabled={!playerTurn || !battleActive}
-          onClick={() => interactionStore.setMode("move")}
+          className={mode.type === "move" ? "action-button active" : "action-button"}
+          disabled={!playerCanAct}
+          onClick={() => interactionStore.setMode({ type: "move" })}
         >移动</button>
         <button
           type="button"
-          className={mode === "attack" ? "action-button active danger" : "action-button danger"}
-          disabled={!playerTurn || !battleActive || !activeUnit.mainActionAvailable || attackTargets.length === 0}
-          onClick={() => interactionStore.setMode("attack")}
+          className={mode.type === "attack" ? "action-button active danger" : "action-button danger"}
+          disabled={!playerCanAct || !activeUnit.mainActionAvailable || attackTargets.length === 0}
+          onClick={() => interactionStore.setMode({ type: "attack" })}
         >攻击 · {attackTargets.length}</button>
       </div>
+
+      {activeUnit.role === "servant" && (
+        <AbilityPalette battle={battle} activeUnit={activeUnit} enabled={playerCanAct} />
+      )}
 
       {contract && master && servant && (
         <section className="contract-card">
@@ -177,7 +185,7 @@ export function BattlePanel() {
         </section>
       )}
 
-      <button type="button" className="primary-action" disabled={!playerTurn || !battleActive} onClick={endTurn}>
+      <button type="button" className="primary-action" disabled={!playerCanAct} onClick={endTurn}>
         {playerTurn ? "结束行动" : "敌方行动中…"}
       </button>
 

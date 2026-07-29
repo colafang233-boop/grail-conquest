@@ -1,8 +1,8 @@
 import {
   processCommand,
+  type AllGameCommand,
   type DomainError,
   type DomainEvent,
-  type GameCommand,
   type GameState,
 } from "@grail/core";
 
@@ -44,7 +44,7 @@ export class GameEngine {
     return () => this.listeners.delete(listener);
   };
 
-  public dispatch(command: GameCommand): DispatchResult {
+  public dispatch(command: AllGameCommand): DispatchResult {
     const result = processCommand(this.state, command);
 
     if (!result.ok) {

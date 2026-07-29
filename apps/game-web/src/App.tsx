@@ -15,14 +15,14 @@ export default function App() {
             <p className="eyebrow">第 1 夜 · 冬木市学园</p>
             <h1>Grail Conquest</h1>
           </div>
-          <div className="prototype-badge">SCENARIO SLICE 0.4</div>
+          <div className="prototype-badge">ABILITY SLICE 0.5</div>
         </header>
 
         <div className="mission-strip">
           <span className="mission-dot" />
           <div>
             <strong>关卡目标</strong>
-            <p>调查敌方真名，在宝具威胁形成后选择撤退保全情报，或继续冒险交战。</p>
+            <p>观察真实宝具准备窗口，选择投影射击打断、投影盾防御、令咒撤离或战术撤退。</p>
           </div>
         </div>
 
