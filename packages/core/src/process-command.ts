@@ -1,14 +1,16 @@
 import { applyAllEvent } from "./apply-all-event";
 import type { AllDomainEvent } from "./all-events";
-import { isStrategyDomainEvent } from "./all-events";
+import { isOperationsDomainEvent, isStrategyDomainEvent } from "./all-events";
 import type { AllGameCommand, AbilityGameCommand, GameCommand } from "./commands";
 import type { DomainError } from "./errors";
 import type { DomainEvent as TacticalDomainEvent } from "./events";
+import type { OperationsGameCommand } from "./operations-commands";
 import type { StrategyGameCommand } from "./strategy-commands";
 import type { GameState } from "./state";
 import { executeAbilityCommand } from "./ability-engine";
 import { normalizeCombatEvents } from "./combat-event-normalizer";
 import { executeCommand } from "./execute-command";
+import { executeOperationsCommand } from "./operations-engine";
 import { evaluateScenarioTriggers } from "./scenario";
 import { executeStrategyCommand } from "./strategy-engine";
 
@@ -29,6 +31,12 @@ export function processCommand(
   state: GameState,
   command: AllGameCommand,
 ): ProcessCommandResult {
+  if (isOperationsCommand(command)) {
+    const execution = executeOperationsCommand(state, command);
+    if (!execution.ok) return failed(state, execution.error);
+    return finalize(state, execution.events);
+  }
+
   if (isStrategyCommand(command)) {
     const execution = executeStrategyCommand(state, command);
     if (!execution.ok) return failed(state, execution.error);
@@ -74,7 +82,8 @@ function finalize(
 ): ProcessCommandResult {
   const commandState = preReducedState ?? baseEvents.reduce(applyAllEvent, before);
   const tacticalEvents = baseEvents.filter(
-    (event): event is TacticalDomainEvent => !isStrategyDomainEvent(event),
+    (event): event is TacticalDomainEvent =>
+      !isStrategyDomainEvent(event) && !isOperationsDomainEvent(event),
   );
   const scenarioEvents = evaluateScenarioTriggers(before, commandState, tacticalEvents);
   let state = scenarioEvents.reduce(applyAllEvent, commandState);
@@ -89,7 +98,7 @@ function finalize(
     const returned: AllDomainEvent = {
       type: "strategy.returned",
       sequence: state.sequence + 1,
-      encounterId: "school-night",
+      encounterId: state.strategy.activeEncounterId ?? "school-night",
       outcome: state.scenario.outcome,
       report: state.scenario.report,
     };
@@ -110,6 +119,10 @@ function isAbilityCommand(command: AllGameCommand): command is AbilityGameComman
 
 function isStrategyCommand(command: AllGameCommand): command is StrategyGameCommand {
   return command.type.startsWith("strategy.");
+}
+
+function isOperationsCommand(command: AllGameCommand): command is OperationsGameCommand {
+  return command.type.startsWith("operations.");
 }
 
 export type LegacyGameCommand = GameCommand;
