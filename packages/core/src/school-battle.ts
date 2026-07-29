@@ -1,6 +1,7 @@
 import { hexKey } from "./hex";
 import { battleId, factionId, unitId } from "./ids";
 import { createInitialScenarioState } from "./scenario";
+import { createInitialStrategyState } from "./strategy";
 import type { GameState, HexTileState } from "./state";
 
 export const SCHOOL_BATTLE_ID = battleId("school-night");
@@ -32,8 +33,10 @@ export function createSchoolBattleState(): GameState {
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sequence: 0,
+    mode: "strategy",
+    strategy: createInitialStrategyState(),
     scenario: createInitialScenarioState(),
     battle: {
       id: SCHOOL_BATTLE_ID,
