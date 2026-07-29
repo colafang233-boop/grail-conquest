@@ -13,7 +13,11 @@ import type {
   ManaRestoredEvent,
   ManaTransferredEvent,
   MasterGuardedEvent,
+  NoblePhantasmWarningEvent,
   ReactionSpentEvent,
+  ScenarioClueDiscoveredEvent,
+  ScenarioCompletedEvent,
+  ScenarioEncounterStartedEvent,
   ServantRecalledEvent,
   ServantUpkeepPaidEvent,
   UnitDefeatedEvent,
@@ -60,6 +64,14 @@ export function applyEvent(state: GameState, event: DomainEvent): GameState {
       return applyDeathWardActivated(state, event);
     case "contract.death_rejected":
       return applyDeathRejected(state, event);
+    case "scenario.encounter_started":
+      return applyScenarioEncounterStarted(state, event);
+    case "scenario.clue_discovered":
+      return applyScenarioClueDiscovered(state, event);
+    case "scenario.noble_phantasm_warning":
+      return applyNoblePhantasmWarning(state, event);
+    case "scenario.completed":
+      return applyScenarioCompleted(state, event);
     default:
       return assertNever(event);
   }
@@ -230,6 +242,67 @@ function applyDeathRejected(state: GameState, event: DeathRejectedEvent): GameSt
     defeated: false,
     deathWardActive: false,
   });
+}
+
+function applyScenarioEncounterStarted(
+  state: GameState,
+  event: ScenarioEncounterStartedEvent,
+): GameState {
+  return {
+    ...state,
+    sequence: event.sequence,
+    scenario: {
+      ...state.scenario,
+      phase: "encounter",
+      objective: "在未知 Lancer 的追击下存活，并收集足以推断其真名的战斗线索。",
+    },
+  };
+}
+
+function applyScenarioClueDiscovered(
+  state: GameState,
+  event: ScenarioClueDiscoveredEvent,
+): GameState {
+  return {
+    ...state,
+    sequence: event.sequence,
+    scenario: {
+      ...state.scenario,
+      clues: [...state.scenario.clues, event.clue],
+    },
+  };
+}
+
+function applyNoblePhantasmWarning(
+  state: GameState,
+  event: NoblePhantasmWarningEvent,
+): GameState {
+  return {
+    ...state,
+    sequence: event.sequence,
+    scenario: {
+      ...state.scenario,
+      phase: "noble_phantasm_warning",
+      objective: "宝具威胁已确认：立即撤退保全情报，或继续冒险尝试击败 Lancer。",
+    },
+  };
+}
+
+function applyScenarioCompleted(
+  state: GameState,
+  event: ScenarioCompletedEvent,
+): GameState {
+  return {
+    ...state,
+    sequence: event.sequence,
+    scenario: {
+      ...state.scenario,
+      phase: "completed",
+      objective: "学校夜战已结束。",
+      outcome: event.outcome,
+      report: event.report,
+    },
+  };
 }
 
 function requireUnit(state: GameState, unitId: UnitId | string) {
