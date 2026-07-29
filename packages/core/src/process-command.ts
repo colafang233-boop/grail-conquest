@@ -1,8 +1,10 @@
-import type { GameCommand } from "./commands";
+import type { AllGameCommand, AbilityGameCommand, GameCommand } from "./commands";
 import type { DomainError } from "./errors";
 import type { DomainEvent } from "./events";
 import type { GameState } from "./state";
 import { applyEvent } from "./apply-event";
+import { executeAbilityCommand } from "./ability-engine";
+import { normalizeCombatEvents } from "./combat-event-normalizer";
 import { executeCommand } from "./execute-command";
 import { evaluateScenarioTriggers } from "./scenario";
 
@@ -21,9 +23,11 @@ export type ProcessCommandResult =
 
 export function processCommand(
   state: GameState,
-  command: GameCommand,
+  command: AllGameCommand,
 ): ProcessCommandResult {
-  const execution = executeCommand(state, command);
+  const execution = isAbilityCommand(command)
+    ? executeAbilityCommand(state, command)
+    : executeCommand(state, command);
 
   if (!execution.ok) {
     return {
@@ -34,13 +38,19 @@ export function processCommand(
     };
   }
 
-  const commandState = execution.events.reduce(applyEvent, state);
-  const scenarioEvents = evaluateScenarioTriggers(state, commandState, execution.events);
-  const allEvents = [...execution.events, ...scenarioEvents];
+  const normalized = normalizeCombatEvents(state, execution.events);
+  const scenarioEvents = evaluateScenarioTriggers(state, normalized.state, normalized.events);
+  const allEvents = [...normalized.events, ...scenarioEvents];
 
   return {
     ok: true,
-    state: scenarioEvents.reduce(applyEvent, commandState),
+    state: scenarioEvents.reduce(applyEvent, normalized.state),
     events: allEvents,
   };
 }
+
+function isAbilityCommand(command: AllGameCommand): command is AbilityGameCommand {
+  return command.type.startsWith("ability.") || command.type.startsWith("noble_phantasm.");
+}
+
+export type LegacyGameCommand = GameCommand;
