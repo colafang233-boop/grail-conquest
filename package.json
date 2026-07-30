@@ -10,10 +10,13 @@
   "scripts": {
     "dev": "pnpm --filter @grail/game-web dev",
     "build": "pnpm -r --if-present build",
-    "simulate": "pnpm --filter @grail/simulation-cli start --",
-    "simulate:smoke": "pnpm simulate -- --runs 30 --seed 20260730 --compact",
+    "simulate": "pnpm --filter @grail/simulation-cli start",
+    "simulate:smoke": "pnpm --filter @grail/simulation-cli start --runs 30 --seed 20260730 --compact",
     "test": "pnpm --filter @grail/core test",
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm typecheck && pnpm test && pnpm simulate:smoke && pnpm build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   }
 }
