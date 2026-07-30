@@ -79,7 +79,7 @@ export function NewGameScreen() {
                 </li>
               ))}
             </ol>
-            <button onClick={() => start(route.id)}>选择该路线</button>
+            <button onClick={() => start(route.id as CampaignRouteId)}>选择该路线</button>
           </article>
         ))}
       </section>
