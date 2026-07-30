@@ -4,12 +4,14 @@ import type { BattleId, FactionId, UnitId } from "./ids";
 export type GameMode = "strategy" | "battle";
 export type RegionId =
   | "tohsaka-residence"
+  | "emiya-residence"
   | "school"
   | "shopping-street"
   | "fuyuki-bridge"
   | "harbor"
-  | "church";
-export type EncounterId = "school-night" | "bridge-duel" | "harbor-clash";
+  | "church"
+  | "ryudou-temple";
+export type EncounterId = "school-night" | "bridge-duel" | "harbor-clash" | "ryudou-siege";
 export type OperationPhase =
   | "dawn"
   | "planning"
@@ -26,6 +28,9 @@ export type StrategicOrderType =
   | "prepare_workshop";
 export type DetectionOutcome = "mutual" | "player_only" | "enemy_only" | "missed";
 export type EncounterAdvantage = "player" | "enemy" | "none";
+export type DiplomacyStatus = "neutral" | "truce" | "allied" | "hostile" | "betrayed";
+export type StrategicFactionStatus = "active" | "withdrawn" | "defeated";
+export type StrategicAiProfile = "player" | "honorable" | "hunter" | "fortifier";
 export type UnitRole = "servant" | "master" | "familiar";
 export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
 export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
@@ -37,7 +42,14 @@ export type AbilityId =
   | "archer_guard_support"
   | "lancer_high_speed_thrust"
   | "lancer_battle_continuation"
-  | "lancer_sweeping_strike";
+  | "lancer_sweeping_strike"
+  | "saber_invisible_air"
+  | "saber_instinct"
+  | "saber_mana_burst"
+  | "caster_dragon_tooth"
+  | "caster_boundary_field"
+  | "caster_mana_drain"
+  | "caster_workshop_reinforcement";
 
 export type NoblePhantasmPhase =
   | "hidden"
@@ -97,6 +109,55 @@ export interface StrategicOrder {
   readonly day: number;
 }
 
+export interface StrategicFactionResources {
+  readonly manaReserve: number;
+  readonly intelligence: number;
+}
+
+export interface StrategicFactionState {
+  readonly id: FactionId;
+  readonly name: string;
+  readonly masterUnitId: UnitId;
+  readonly servantUnitIds: readonly UnitId[];
+  readonly regionId: RegionId;
+  readonly knownRegionId?: RegionId;
+  readonly exposure: number;
+  readonly status: StrategicFactionStatus;
+  readonly aiProfile: StrategicAiProfile;
+  readonly knownIntel: readonly string[];
+  readonly resources: StrategicFactionResources;
+  readonly workshopLevel: number;
+  readonly order?: StrategicOrder;
+}
+
+export interface DiplomacyRelation {
+  readonly id: string;
+  readonly firstFactionId: FactionId;
+  readonly secondFactionId: FactionId;
+  readonly status: DiplomacyStatus;
+  readonly sharedDetection: boolean;
+  readonly expiresDay?: number;
+  readonly betrayalCount: number;
+}
+
+export interface AllianceOffer {
+  readonly id: string;
+  readonly fromFactionId: FactionId;
+  readonly toFactionId: FactionId;
+  readonly proposedStatus: "truce" | "allied";
+  readonly durationDays: number;
+  readonly expiresDay: number;
+}
+
+export interface ChurchBounty {
+  readonly id: string;
+  readonly targetFactionId: FactionId;
+  readonly issuedDay: number;
+  readonly reason: string;
+  readonly intelligenceReward: number;
+  readonly active: boolean;
+}
+
 export interface OperationDetection {
   readonly regionId: RegionId;
   readonly outcome: DetectionOutcome;
@@ -104,6 +165,10 @@ export interface OperationDetection {
   readonly enemyScore: number;
   readonly playerRoll: number;
   readonly enemyRoll: number;
+  readonly firstFactionId?: FactionId;
+  readonly secondFactionId?: FactionId;
+  readonly firstDetectedSecond?: boolean;
+  readonly secondDetectedFirst?: boolean;
 }
 
 export interface StrategyEncounterQueueItem {
@@ -113,6 +178,9 @@ export interface StrategyEncounterQueueItem {
   readonly detection: DetectionOutcome;
   readonly advantage: EncounterAdvantage;
   readonly mandatory: boolean;
+  readonly participantFactionIds: readonly FactionId[];
+  readonly hostilePairs: readonly string[];
+  readonly advantagedFactionId?: FactionId;
 }
 
 export interface StrategyTimelineEntry {
@@ -149,10 +217,16 @@ export interface StrategyState {
   readonly phase: OperationPhase;
   readonly playerOrder?: StrategicOrder;
   readonly enemyOrder?: StrategicOrder;
+  readonly factions: Readonly<Record<string, StrategicFactionState>>;
+  readonly diplomacy: Readonly<Record<string, DiplomacyRelation>>;
+  readonly allianceOffers: readonly AllianceOffer[];
+  readonly churchBounty?: ChurchBounty;
   readonly encounterQueue: readonly StrategyEncounterQueueItem[];
   readonly activeEncounterId?: EncounterId;
+  readonly activeParticipantFactionIds: readonly FactionId[];
   readonly resolutionTimeline: readonly StrategyTimelineEntry[];
   readonly lastDetection?: OperationDetection;
+  readonly lastDetections: readonly OperationDetection[];
   readonly operationSeed: number;
   readonly workshopPrepared: boolean;
   readonly pendingEncounterId?: EncounterId;
@@ -186,6 +260,7 @@ export interface BattleUnitState {
   readonly mainActionAvailable: boolean;
   readonly reactionAvailable: boolean;
   readonly defeated: boolean;
+  readonly deployed: boolean;
   readonly lowMana: boolean;
   readonly deathWardActive: boolean;
   readonly abilityIds: readonly AbilityId[];
@@ -213,13 +288,14 @@ export interface BattleState {
   readonly round: number;
   readonly activeUnitId: UnitId;
   readonly initiative: readonly UnitId[];
+  readonly participatingFactionIds: readonly FactionId[];
   readonly tiles: Readonly<Record<string, HexTileState>>;
   readonly units: Readonly<Record<string, BattleUnitState>>;
   readonly contracts: Readonly<Record<string, ContractState>>;
 }
 
 export interface GameState {
-  readonly schemaVersion: 3;
+  readonly schemaVersion: 4;
   readonly sequence: number;
   readonly mode: GameMode;
   readonly strategy: StrategyState;
