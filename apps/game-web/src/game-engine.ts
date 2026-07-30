@@ -1,4 +1,7 @@
 import { GameEngine } from "@grail/application";
-import { createSchoolBattleState } from "@grail/core";
+import { assertValidContentRegistry, createNewGameState } from "@grail/core";
 
-export const gameEngine = new GameEngine(createSchoolBattleState());
+const initialState = createNewGameState();
+assertValidContentRegistry(initialState);
+
+export const gameEngine = new GameEngine(initialState);
