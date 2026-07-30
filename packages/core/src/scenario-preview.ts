@@ -1,6 +1,6 @@
 import { getPlayerFactionId } from "./operations";
 import { ENEMY_STRATEGY_FACTION_ID, getStrategicFaction } from "./strategy";
-import type { BrowserContentPack, ExternalEncounterContent } from "./external-content";
+import type { BrowserContentPack } from "./external-content";
 import { isRuntimeEncounterId, isRuntimeRegionId } from "./external-content";
 import type { BattleUnitState, EncounterId, GameState, RegionId, StrategyRegionState } from "./state";
 
@@ -97,27 +97,31 @@ function applyRegionOverrides(
   for (const content of pack.regions) {
     if (!isRuntimeRegionId(content.id)) continue;
     const existing = regions[content.id];
+    const { encounterId: _existingEncounterId, ...withoutEncounter } = existing;
     const connections = content.connections.filter(isRuntimeRegionId);
     const encounterId = content.encounterId && isRuntimeEncounterId(content.encounterId)
       ? content.encounterId
       : undefined;
-    regions[content.id] = {
-      ...existing,
-      name: content.name,
-      x: content.x,
-      y: content.y,
-      connections,
-      leylineStrength: Math.max(0, content.leylineStrength),
-      ...(encounterId ? { encounterId } : removeEncounter(existing)),
-    };
+    regions[content.id] = encounterId
+      ? {
+          ...withoutEncounter,
+          name: content.name,
+          x: content.x,
+          y: content.y,
+          connections,
+          leylineStrength: Math.max(0, content.leylineStrength),
+          encounterId,
+        }
+      : {
+          ...withoutEncounter,
+          name: content.name,
+          x: content.x,
+          y: content.y,
+          connections,
+          leylineStrength: Math.max(0, content.leylineStrength),
+        };
   }
   return regions;
-}
-
-function removeEncounter(region: StrategyRegionState): Pick<StrategyRegionState, never> {
-  const { encounterId: _encounterId, ...withoutEncounter } = region;
-  void withoutEncounter;
-  return {};
 }
 
 function resetUnit(
@@ -126,12 +130,14 @@ function resetUnit(
   position: BattleUnitState["position"],
 ): BattleUnitState {
   const noblePhantasm = unit.noblePhantasm
-    ? {
-        ...unit.noblePhantasm,
-        phase: unit.noblePhantasm.cooldownRemaining > 0 ? "cooldown" as const : "hidden" as const,
-        charge: 0,
-        targetId: undefined,
-      }
+    ? (() => {
+        const { targetId: _targetId, ...withoutTarget } = unit.noblePhantasm;
+        return {
+          ...withoutTarget,
+          phase: unit.noblePhantasm.cooldownRemaining > 0 ? "cooldown" as const : "hidden" as const,
+          charge: 0,
+        };
+      })()
     : undefined;
   return {
     ...unit,
