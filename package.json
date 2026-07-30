@@ -15,8 +15,5 @@
     "test": "pnpm --filter @grail/core test",
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm typecheck && pnpm test && pnpm simulate:smoke && pnpm build"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
   }
 }
