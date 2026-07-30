@@ -64,7 +64,7 @@ describe("multi-faction Holy Grail War", () => {
       "lancer-faction",
       "tohsaka",
     ]);
-    expect(encounter?.hostilePairs.sort()).toEqual([
+    expect([...(encounter?.hostilePairs ?? [])].sort()).toEqual([
       "emiya::lancer-faction",
       "lancer-faction::tohsaka",
     ]);
