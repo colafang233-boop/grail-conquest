@@ -1,25 +1,34 @@
 import type { AllDomainEvent } from "./all-events";
 import type { DomainError } from "./errors";
+import type { FactionId } from "./ids";
 import type { OperationsGameCommand } from "./operations-commands";
 import {
   ORDER_LABELS,
   advanceOperationSeed,
-  createEncounterFromDetection,
-  createEnemyOrder,
+  createAllFactionOrders,
+  createContactGroups,
+  createMultiPartyEncounter,
   createStrategicOrder,
-  getContactRegion,
-  resolveOperationDetection,
+  resolveFactionDetection,
 } from "./operations";
 import {
+  ACTIVE_STRATEGY_FACTION_IDS,
+  EMIYA_FACTION_ID,
   ENEMY_STRATEGY_FACTION_ID,
+  RYOUDOU_FACTION_ID,
   STRATEGY_FACTION_ID,
   STRATEGY_MASTER_ID,
   STRATEGY_SERVANT_ID,
+  diplomacyKey,
   getControlledLeylineRegions,
+  getDiplomacyRelation,
   getEncounterDefinition,
+  getStrategicFaction,
   isSafeRestRegion,
 } from "./strategy";
 import type {
+  AllianceOffer,
+  DiplomacyRelation,
   GameState,
   OperationPhase,
   RegionId,
@@ -32,207 +41,130 @@ export type OperationsCommandResult =
   | { readonly ok: true; readonly events: readonly AllDomainEvent[] }
   | { readonly ok: false; readonly error: DomainError };
 
-export function executeOperationsCommand(
-  state: GameState,
-  command: OperationsGameCommand,
-): OperationsCommandResult {
-  if (state.mode !== "strategy") {
-    return failure("operations_not_active", "Finish the active encounter before planning another night");
-  }
-
+export function executeOperationsCommand(state: GameState, command: OperationsGameCommand): OperationsCommandResult {
+  if (state.mode !== "strategy") return failure("operations_not_active", "Finish the active encounter before planning another night");
   switch (command.type) {
-    case "operations.submit_order":
-      return submitOrder(state, command.orderType, command.destinationId);
-    case "operations.cancel_order":
-      return cancelOrder(state);
-    case "operations.lock_orders":
-      return lockOrders(state);
-    case "operations.resolve_night":
-      return resolveNight(state);
-    case "operations.enter_encounter":
-      return enterEncounter(state, command.queueId);
-    case "operations.decline_encounter":
-      return declineEncounter(state, command.queueId);
-    case "operations.settle_night":
-      return settleNight(state);
-    default:
-      return assertNever(command);
+    case "operations.submit_order": return submitOrder(state, command.orderType, command.destinationId);
+    case "operations.cancel_order": return cancelOrder(state);
+    case "operations.lock_orders": return lockOrders(state);
+    case "operations.resolve_night": return resolveNight(state);
+    case "operations.enter_encounter": return enterEncounter(state, command.queueId);
+    case "operations.decline_encounter": return declineEncounter(state, command.queueId);
+    case "operations.settle_night": return settleNight(state);
+    case "diplomacy.offer": return offerAlliance(state, command.targetFactionId, command.proposedStatus, command.durationDays);
+    case "diplomacy.respond": return respondAlliance(state, command.offerId, command.accept);
+    case "diplomacy.break": return breakAlliance(state, command.targetFactionId);
+    default: return assertNever(command);
   }
 }
 
-function submitOrder(
-  state: GameState,
-  type: StrategicOrderType,
-  destinationId?: RegionId,
-): OperationsCommandResult {
-  if (state.strategy.phase !== "planning") {
-    return failure("operations_phase_invalid", "Orders can only be changed during planning");
-  }
-  const origin = state.strategy.currentRegionId;
+function submitOrder(state: GameState, type: StrategicOrderType, destinationId?: RegionId): OperationsCommandResult {
+  if (state.strategy.phase !== "planning") return failure("operations_phase_invalid", "Orders can only be changed during planning");
+  const playerFaction = getStrategicFaction(state, STRATEGY_FACTION_ID);
+  if (!playerFaction) return failure("unit_not_found", "Player faction is missing");
+  const origin = playerFaction.regionId;
   const destination = type === "move" ? destinationId : origin;
   if (!destination) return failure("operations_destination_required", "Choose a destination for movement");
-
   const validation = validateOrder(state, type, destination);
   if (validation) return failure(validation.code, validation.message);
-
-  const order = createStrategicOrder(
-    STRATEGY_FACTION_ID,
-    type,
-    origin,
-    destination,
-    state.strategy.day,
-  );
+  const order = createStrategicOrder(STRATEGY_FACTION_ID, type, origin, destination, state.strategy.day);
   let sequence = state.sequence;
-  return {
-    ok: true,
-    events: [
-      { type: "operations.order_submitted", sequence: ++sequence, order },
-      timeline(++sequence, "planning", `已选择：${ORDER_LABELS[type]}。锁定前仍可修改。`, destination),
-    ],
-  };
+  return { ok: true, events: [
+    { type: "operations.order_submitted", sequence: ++sequence, order },
+    timeline(++sequence, "planning", `已选择：${ORDER_LABELS[type]}。锁定前仍可修改。`, destination),
+  ] };
 }
 
 function cancelOrder(state: GameState): OperationsCommandResult {
-  if (state.strategy.phase !== "planning") {
-    return failure("operations_phase_invalid", "Locked orders cannot be cancelled");
-  }
-  if (!state.strategy.playerOrder) {
-    return failure("operations_order_missing", "No player order has been submitted");
-  }
+  if (state.strategy.phase !== "planning") return failure("operations_phase_invalid", "Locked orders cannot be cancelled");
+  if (!state.strategy.playerOrder) return failure("operations_order_missing", "No player order has been submitted");
   let sequence = state.sequence;
-  return {
-    ok: true,
-    events: [
-      { type: "operations.order_cancelled", sequence: ++sequence },
-      timeline(++sequence, "planning", "本夜行动已撤销。"),
-    ],
-  };
+  return { ok: true, events: [
+    { type: "operations.order_cancelled", sequence: ++sequence },
+    timeline(++sequence, "planning", "本夜行动已撤销。"),
+  ] };
 }
 
 function lockOrders(state: GameState): OperationsCommandResult {
-  if (state.strategy.phase !== "planning") {
-    return failure("operations_phase_invalid", "The operation is not in planning");
-  }
+  if (state.strategy.phase !== "planning") return failure("operations_phase_invalid", "The operation is not in planning");
   const playerOrder = state.strategy.playerOrder;
   if (!playerOrder) return failure("operations_order_missing", "Submit an order before locking the plan");
-  const enemyOrder = createEnemyOrder(state, playerOrder);
+  const orders = createAllFactionOrders(state, playerOrder);
+  const enemyOrder = orders[ENEMY_STRATEGY_FACTION_ID];
+  if (!enemyOrder) return failure("operations_order_missing", "Lancer faction failed to choose an order");
   let sequence = state.sequence;
-  return {
-    ok: true,
-    events: [
-      { type: "operations.orders_locked", sequence: ++sequence, enemyOrder },
-      { type: "operations.phase_changed", sequence: ++sequence, phase: "orders_locked" },
-      timeline(++sequence, "orders_locked", "我方命令已封存。敌方行动仍处于未知状态。"),
-    ],
-  };
+  return { ok: true, events: [
+    { type: "operations.orders_locked", sequence: ++sequence, enemyOrder, orders },
+    { type: "operations.phase_changed", sequence: ++sequence, phase: "orders_locked" },
+    timeline(++sequence, "orders_locked", "我方命令已封存。Saber、Lancer与Caster的行动仍处于未知状态。"),
+  ] };
 }
 
 function resolveNight(state: GameState): OperationsCommandResult {
-  if (state.strategy.phase !== "orders_locked") {
-    return failure("operations_phase_invalid", "Lock both orders before resolving the night");
-  }
-  const playerOrder = state.strategy.playerOrder;
-  const enemyOrder = state.strategy.enemyOrder;
-  if (!playerOrder || !enemyOrder) {
-    return failure("operations_order_missing", "Both factions require a locked order");
-  }
+  if (state.strategy.phase !== "orders_locked") return failure("operations_phase_invalid", "Lock all orders before resolving the night");
+  const orders = collectOrders(state);
+  if (Object.keys(orders).length < 2) return failure("operations_order_missing", "Active factions require locked orders");
 
   let sequence = state.sequence;
   const events: AllDomainEvent[] = [
     { type: "operations.phase_changed", sequence: ++sequence, phase: "movement_resolution" },
-    timeline(++sequence, "movement_resolution", "双方命令同时公开并开始执行。"),
+    timeline(++sequence, "movement_resolution", "四阵营命令同时公开并开始执行。"),
   ];
 
-  if (playerOrder.destinationRegionId !== playerOrder.originRegionId) {
-    events.push({
-      type: "operations.faction_moved",
-      sequence: ++sequence,
-      factionId: STRATEGY_FACTION_ID,
-      from: playerOrder.originRegionId,
-      to: playerOrder.destinationRegionId,
-    });
-    const destination = state.strategy.regions[playerOrder.destinationRegionId];
-    if (!destination.discovered) {
-      events.push({
-        type: "strategy.region_discovered",
-        sequence: ++sequence,
-        regionId: destination.id,
-      });
+  for (const order of Object.values(orders).sort((a, b) => String(a.factionId).localeCompare(String(b.factionId)))) {
+    const faction = getStrategicFaction(state, order.factionId);
+    if (!faction) continue;
+    if (order.destinationRegionId !== order.originRegionId) {
+      events.push({ type: "operations.faction_moved", sequence: ++sequence, factionId: order.factionId, from: order.originRegionId, to: order.destinationRegionId });
+      if (order.factionId === STRATEGY_FACTION_ID && !state.strategy.regions[order.destinationRegionId].discovered) {
+        events.push({ type: "strategy.region_discovered", sequence: ++sequence, regionId: order.destinationRegionId });
+      }
+      events.push(timeline(++sequence, "movement_resolution", `${faction.name}移动至${state.strategy.regions[order.destinationRegionId].name}。`, order.destinationRegionId));
+    } else {
+      events.push(timeline(++sequence, "movement_resolution", `${faction.name}留在${state.strategy.regions[order.originRegionId].name}执行${ORDER_LABELS[order.type]}。`, order.originRegionId));
     }
-    events.push(timeline(
-      ++sequence,
-      "movement_resolution",
-      `远坂阵营移动至${destination.name}。`,
-      destination.id,
-    ));
+    appendOrderEffects(state, faction.id, order, events, () => ++sequence);
   }
 
-  if (enemyOrder.destinationRegionId !== enemyOrder.originRegionId) {
-    events.push({
-      type: "operations.faction_moved",
-      sequence: ++sequence,
-      factionId: ENEMY_STRATEGY_FACTION_ID,
-      from: enemyOrder.originRegionId,
-      to: enemyOrder.destinationRegionId,
-    });
-    events.push(timeline(
-      ++sequence,
-      "movement_resolution",
-      "未知 Lancer 阵营完成了秘密移动。",
-      enemyOrder.destinationRegionId,
-    ));
-  } else {
-    events.push(timeline(++sequence, "movement_resolution", "未知 Lancer 阵营留在原区域执行隐蔽行动。"));
+  const groups = createContactGroups(orders);
+  const queued = [] as NonNullable<ReturnType<typeof createMultiPartyEncounter>>[];
+  const allDetections = [] as ReturnType<typeof resolveFactionDetection>[];
+
+  for (const group of groups) {
+    const detections: ReturnType<typeof resolveFactionDetection>[] = [];
+    for (let left = 0; left < group.factionIds.length; left += 1) {
+      for (let right = left + 1; right < group.factionIds.length; right += 1) {
+        const firstId = group.factionIds[left];
+        const secondId = group.factionIds[right];
+        if (!firstId || !secondId) continue;
+        const firstOrder = orders[firstId];
+        const secondOrder = orders[secondId];
+        if (!firstOrder || !secondOrder) continue;
+        const detection = resolveFactionDetection(state, firstOrder, secondOrder, group.regionId);
+        detections.push(detection);
+        allDetections.push(detection);
+        events.push({ type: "operations.detection_resolved", sequence: ++sequence, detection });
+      }
+    }
+    const encounter = createMultiPartyEncounter(state, group, orders, detections);
+    if (encounter) {
+      queued.push(encounter);
+      events.push(
+        { type: "operations.encounter_queued", sequence: ++sequence, encounter },
+        timeline(++sequence, "encounter_resolution", `${group.factionIds.length}支阵营在${state.strategy.regions[group.regionId].name}形成接触。`, group.regionId),
+      );
+    } else {
+      events.push(timeline(++sequence, "encounter_resolution", `接触发生于${state.strategy.regions[group.regionId].name}，但未形成有效敌对遭遇。`, group.regionId));
+    }
   }
 
-  appendPlayerOrderEffects(state, playerOrder, events, () => ++sequence);
-  appendEnemyOrderEffects(state, enemyOrder, events, () => ++sequence);
-
-  const contactRegion = getContactRegion(playerOrder, enemyOrder);
-  if (!contactRegion) {
-    events.push(
-      timeline(++sequence, "encounter_resolution", "双方路线没有形成有效接触。今夜未发生遭遇。"),
-      { type: "operations.phase_changed", sequence: ++sequence, phase: "night_settlement" },
-    );
-    return { ok: true, events };
-  }
-
-  const detection = resolveOperationDetection(state, playerOrder, enemyOrder, contactRegion);
-  events.push(
-    { type: "operations.phase_changed", sequence: ++sequence, phase: "encounter_resolution" },
-    { type: "operations.detection_resolved", sequence: ++sequence, detection },
-  );
-
-  const encounter = createEncounterFromDetection(state, detection, playerOrder, enemyOrder);
-  if (!encounter) {
-    events.push(
-      timeline(
-        ++sequence,
-        "encounter_resolution",
-        "双方在同一区域擦肩而过，均未确认对方位置。",
-        contactRegion,
-      ),
-      { type: "operations.phase_changed", sequence: ++sequence, phase: "night_settlement" },
-    );
-    return { ok: true, events };
-  }
-
-  events.push(
-    { type: "operations.encounter_queued", sequence: ++sequence, encounter },
-    timeline(
-      ++sequence,
-      "encounter_resolution",
-      detectionMessage(detection.outcome, encounter.advantage),
-      contactRegion,
-    ),
-  );
+  events.push({ type: "operations.phase_changed", sequence: ++sequence, phase: queued.length > 0 ? "encounter_resolution" : "night_settlement" });
+  appendBountyIfNeeded(state, events, () => ++sequence);
   return { ok: true, events };
 }
 
 function enterEncounter(state: GameState, queueId: string): OperationsCommandResult {
-  if (state.strategy.phase !== "encounter_resolution") {
-    return failure("operations_phase_invalid", "No encounter can be entered in the current phase");
-  }
+  if (state.strategy.phase !== "encounter_resolution") return failure("operations_phase_invalid", "No encounter can be entered in the current phase");
   const encounter = state.strategy.encounterQueue.find(item => item.id === queueId);
   if (!encounter) return failure("operations_encounter_missing", "The selected encounter is no longer available");
   const definition = getEncounterDefinition(encounter.encounterId);
@@ -240,64 +172,40 @@ function enterEncounter(state: GameState, queueId: string): OperationsCommandRes
   const events: AllDomainEvent[] = [
     { type: "operations.encounter_removed", sequence: ++sequence, queueId },
     {
-      type: "operations.encounter_entered",
-      sequence: ++sequence,
-      encounterId: encounter.encounterId,
-      regionId: encounter.regionId,
-      advantage: encounter.advantage,
+      type: "operations.encounter_entered", sequence: ++sequence,
+      encounterId: encounter.encounterId, regionId: encounter.regionId,
+      advantage: encounter.advantage, participantFactionIds: encounter.participantFactionIds,
+      ...(encounter.advantagedFactionId ? { advantagedFactionId: encounter.advantagedFactionId } : {}),
     },
-    {
-      type: "scenario.encounter_started",
-      sequence: ++sequence,
-      scenarioId: "school-night",
-    },
-    timeline(++sequence, "encounter_resolution", `进入遭遇：${definition.title}。`, encounter.regionId),
+    { type: "scenario.encounter_started", sequence: ++sequence, scenarioId: "school-night" },
+    timeline(++sequence, "encounter_resolution", `进入多方遭遇：${definition.title}。`, encounter.regionId),
   ];
-
   if (state.strategy.workshopPrepared) {
-    events.push({
-      type: "ability.barrier_applied",
-      sequence: ++sequence,
-      battleId: state.battle.id,
-      sourceId: STRATEGY_SERVANT_ID,
-      targetId: STRATEGY_SERVANT_ID,
-      amount: 15,
-    });
+    events.push({ type: "ability.barrier_applied", sequence: ++sequence, battleId: state.battle.id, sourceId: STRATEGY_SERVANT_ID, targetId: STRATEGY_SERVANT_ID, amount: 15 });
   }
   return { ok: true, events };
 }
 
 function declineEncounter(state: GameState, queueId: string): OperationsCommandResult {
-  if (state.strategy.phase !== "encounter_resolution") {
-    return failure("operations_phase_invalid", "No encounter can be declined in the current phase");
-  }
+  if (state.strategy.phase !== "encounter_resolution") return failure("operations_phase_invalid", "No encounter can be declined in the current phase");
   const encounter = state.strategy.encounterQueue.find(item => item.id === queueId);
   if (!encounter) return failure("operations_encounter_missing", "The selected encounter is no longer available");
-  if (encounter.mandatory) {
-    return failure("operations_encounter_mandatory", "The enemy has already detected you; this encounter is mandatory");
-  }
+  if (encounter.mandatory) return failure("operations_encounter_mandatory", "A hostile faction has already detected you; this encounter is mandatory");
   let sequence = state.sequence;
-  return {
-    ok: true,
-    events: [
-      { type: "operations.encounter_removed", sequence: ++sequence, queueId },
-      timeline(++sequence, "encounter_resolution", "我方保持隐蔽，没有主动发起遭遇。", encounter.regionId),
-      { type: "operations.phase_changed", sequence: ++sequence, phase: "night_settlement" },
-    ],
-  };
+  const remaining = state.strategy.encounterQueue.filter(item => item.id !== queueId);
+  return { ok: true, events: [
+    { type: "operations.encounter_removed", sequence: ++sequence, queueId },
+    timeline(++sequence, "encounter_resolution", "我方保持隐蔽，没有主动发起多方遭遇。", encounter.regionId),
+    ...(remaining.length === 0 ? [{ type: "operations.phase_changed", sequence: ++sequence, phase: "night_settlement" } as const] : []),
+  ] };
 }
 
 function settleNight(state: GameState): OperationsCommandResult {
-  if (state.strategy.phase !== "night_settlement") {
-    return failure("operations_phase_invalid", "Resolve or finish every encounter before dawn");
-  }
-
+  if (state.strategy.phase !== "night_settlement") return failure("operations_phase_invalid", "Resolve or finish every encounter before dawn");
   const master = state.battle.units[STRATEGY_MASTER_ID];
   const servant = state.battle.units[STRATEGY_SERVANT_ID];
   const contract = state.battle.contracts[STRATEGY_FACTION_ID];
-  if (!master || !servant || !contract) {
-    return failure("unit_not_found", "The active Master–Servant pair is incomplete");
-  }
+  if (!master || !servant || !contract) return failure("unit_not_found", "The active Master–Servant pair is incomplete");
 
   let sequence = state.sequence;
   const events: AllDomainEvent[] = [
@@ -308,64 +216,27 @@ function settleNight(state: GameState): OperationsCommandResult {
   const power = controlled.reduce((sum, region) => sum + region.leylineStrength, 0);
   const masterIncome = power * 5;
   const servantIncome = power * 8;
-
-  if (power > 0) {
-    events.push({
-      type: "strategy.mana_income",
-      sequence: ++sequence,
-      masterId: master.id,
-      servantId: servant.id,
-      masterAmount: masterIncome,
-      servantAmount: servantIncome,
-      sourceRegionIds: controlled.map(region => region.id),
-    });
-  }
-
+  if (power > 0) events.push({ type: "strategy.mana_income", sequence: ++sequence, masterId: master.id, servantId: servant.id, masterAmount: masterIncome, servantAmount: servantIncome, sourceRegionIds: controlled.map(region => region.id) });
   const servantManaBeforeUpkeep = Math.min(servant.maxMana, servant.mana + servantIncome);
   const paid = Math.min(servantManaBeforeUpkeep, contract.upkeep);
-  events.push({
-    type: "contract.servant_upkeep_paid",
-    sequence: ++sequence,
-    battleId: state.battle.id,
-    factionId: contract.factionId,
-    servantId: servant.id,
-    amount: paid,
-    required: contract.upkeep,
-  });
+  events.push({ type: "contract.servant_upkeep_paid", sequence: ++sequence, battleId: state.battle.id, factionId: contract.factionId, servantId: servant.id, amount: paid, required: contract.upkeep });
   const manaAfterUpkeep = servantManaBeforeUpkeep - paid;
   const lowMana = manaAfterUpkeep < Math.ceil(servant.maxMana * 0.3);
-  if (lowMana !== servant.lowMana) {
-    events.push({
-      type: "contract.low_mana_changed",
-      sequence: ++sequence,
-      battleId: state.battle.id,
-      servantId: servant.id,
-      lowMana,
-    });
-  }
+  if (lowMana !== servant.lowMana) events.push({ type: "contract.low_mana_changed", sequence: ++sequence, battleId: state.battle.id, servantId: servant.id, lowMana });
 
+  for (const factionId of ACTIVE_STRATEGY_FACTION_IDS) {
+    const faction = getStrategicFaction(state, factionId);
+    if (!faction) continue;
+    events.push({ type: "operations.faction_exposure_changed", sequence: ++sequence, factionId, exposure: Math.max(0, faction.exposure - (factionId === STRATEGY_FACTION_ID ? 10 : 6)) });
+  }
+  for (const relation of Object.values(state.strategy.diplomacy)) {
+    if (relation.expiresDay !== undefined && relation.expiresDay <= state.strategy.day + 1 && (relation.status === "allied" || relation.status === "truce")) {
+      events.push({ type: "diplomacy.relation_changed", sequence: ++sequence, relation: { ...relation, status: "neutral", sharedDetection: false, expiresDay: undefined } });
+    }
+  }
   events.push(
-    {
-      type: "strategy.exposure_changed",
-      sequence: ++sequence,
-      exposure: Math.max(0, state.strategy.exposure - 10),
-    },
-    {
-      type: "operations.enemy_exposure_changed",
-      sequence: ++sequence,
-      exposure: Math.max(0, state.strategy.enemyExposure - 6),
-    },
-    {
-      type: "strategy.day_advanced",
-      sequence: ++sequence,
-      day: state.strategy.day + 1,
-      actionPoints: state.strategy.maxActionPoints,
-    },
-    {
-      type: "operations.seed_advanced",
-      sequence: ++sequence,
-      seed: advanceOperationSeed(state.strategy.operationSeed),
-    },
+    { type: "strategy.day_advanced", sequence: ++sequence, day: state.strategy.day + 1, actionPoints: state.strategy.maxActionPoints },
+    { type: "operations.seed_advanced", sequence: ++sequence, seed: advanceOperationSeed(state.strategy.operationSeed) },
     { type: "operations.orders_cleared", sequence: ++sequence },
     { type: "operations.workshop_prepared", sequence: ++sequence, prepared: false },
     { type: "operations.phase_changed", sequence: ++sequence, phase: "planning" },
@@ -373,150 +244,140 @@ function settleNight(state: GameState): OperationsCommandResult {
   return { ok: true, events };
 }
 
-function validateOrder(
+function offerAlliance(
   state: GameState,
-  type: StrategicOrderType,
-  destination: RegionId,
-): DomainError | undefined {
-  const current = state.strategy.regions[state.strategy.currentRegionId];
+  targetFactionId: FactionId,
+  proposedStatus: "truce" | "allied",
+  durationDays: number,
+): OperationsCommandResult {
+  if (state.strategy.phase !== "planning") return failure("operations_phase_invalid", "Diplomacy is only available during planning");
+  if (targetFactionId === STRATEGY_FACTION_ID) return failure("operations_order_invalid", "Cannot negotiate with your own faction");
+  const target = getStrategicFaction(state, targetFactionId);
+  if (!target || target.status !== "active") return failure("unit_not_found", "The target faction is unavailable");
+  const existing = getDiplomacyRelation(state, STRATEGY_FACTION_ID, targetFactionId);
+  if (existing?.status === "betrayed") return failure("operations_order_invalid", "This faction refuses negotiation after betrayal");
+  const offer: AllianceOffer = {
+    id: `offer-${state.strategy.day}-${targetFactionId}-${proposedStatus}`,
+    fromFactionId: STRATEGY_FACTION_ID,
+    toFactionId: targetFactionId,
+    proposedStatus,
+    durationDays: Math.max(1, durationDays),
+    expiresDay: state.strategy.day + 1,
+  };
+  const accepted = targetFactionId === EMIYA_FACTION_ID || (targetFactionId === RYOUDOU_FACTION_ID && proposedStatus === "truce");
+  let sequence = state.sequence;
+  const events: AllDomainEvent[] = [
+    { type: "diplomacy.offer_created", sequence: ++sequence, offer },
+    { type: "diplomacy.offer_resolved", sequence: ++sequence, offerId: offer.id, accepted },
+  ];
+  if (accepted) {
+    events.push({ type: "diplomacy.relation_changed", sequence: ++sequence, relation: createRelation(state, targetFactionId, proposedStatus, state.strategy.day + offer.durationDays) });
+    events.push(timeline(++sequence, "planning", `${target.name}接受了${proposedStatus === "allied" ? "临时联盟" : "停战"}提议。`));
+  } else {
+    events.push(timeline(++sequence, "planning", `${target.name}拒绝了外交提议。`));
+  }
+  return { ok: true, events };
+}
+
+function respondAlliance(state: GameState, offerId: string, accept: boolean): OperationsCommandResult {
+  const offer = state.strategy.allianceOffers.find(item => item.id === offerId);
+  if (!offer) return failure("operations_order_missing", "Alliance offer no longer exists");
+  let sequence = state.sequence;
+  const events: AllDomainEvent[] = [{ type: "diplomacy.offer_resolved", sequence: ++sequence, offerId, accepted: accept }];
+  if (accept) events.push({ type: "diplomacy.relation_changed", sequence: ++sequence, relation: createRelation(state, offer.fromFactionId, offer.proposedStatus, state.strategy.day + offer.durationDays) });
+  return { ok: true, events };
+}
+
+function breakAlliance(state: GameState, targetFactionId: FactionId): OperationsCommandResult {
+  const current = getDiplomacyRelation(state, STRATEGY_FACTION_ID, targetFactionId);
+  if (!current || (current.status !== "allied" && current.status !== "truce")) return failure("operations_order_invalid", "No active agreement exists with that faction");
+  let sequence = state.sequence;
+  return { ok: true, events: [
+    { type: "diplomacy.relation_changed", sequence: ++sequence, relation: { ...current, status: "betrayed", sharedDetection: false, betrayalCount: current.betrayalCount + 1, expiresDay: undefined } },
+    timeline(++sequence, "planning", "我方主动撕毁协议。该阵营将永久记住这次背叛。"),
+  ] };
+}
+
+function createRelation(state: GameState, targetFactionId: FactionId, status: "truce" | "allied", expiresDay: number): DiplomacyRelation {
+  const existing = getDiplomacyRelation(state, STRATEGY_FACTION_ID, targetFactionId);
+  return {
+    id: diplomacyKey(STRATEGY_FACTION_ID, targetFactionId),
+    firstFactionId: existing?.firstFactionId ?? STRATEGY_FACTION_ID,
+    secondFactionId: existing?.secondFactionId ?? targetFactionId,
+    status,
+    sharedDetection: status === "allied",
+    expiresDay,
+    betrayalCount: existing?.betrayalCount ?? 0,
+  };
+}
+
+function collectOrders(state: GameState): Readonly<Record<string, StrategicOrder>> {
+  const result: Record<string, StrategicOrder> = {};
+  for (const faction of Object.values(state.strategy.factions)) if (faction.order) result[faction.id] = faction.order;
+  if (state.strategy.playerOrder) result[STRATEGY_FACTION_ID] = state.strategy.playerOrder;
+  if (state.strategy.enemyOrder) result[ENEMY_STRATEGY_FACTION_ID] = state.strategy.enemyOrder;
+  return result;
+}
+
+function validateOrder(state: GameState, type: StrategicOrderType, destination: RegionId): DomainError | undefined {
+  const player = getStrategicFaction(state, STRATEGY_FACTION_ID);
+  if (!player) return { code: "unit_not_found", message: "Player faction is missing" };
+  const current = state.strategy.regions[player.regionId];
   if (type === "move") {
     if (destination === current.id) return { code: "operations_order_invalid", message: "Choose another region" };
-    if (!current.connections.includes(destination)) {
-      return { code: "strategy_region_not_connected", message: `${state.strategy.regions[destination].name} is not connected to ${current.name}` };
-    }
+    if (!current.connections.includes(destination)) return { code: "strategy_region_not_connected", message: `${state.strategy.regions[destination].name} is not connected to ${current.name}` };
   }
-  if (type === "investigate" && current.investigated) {
-    return { code: "strategy_region_already_investigated", message: `${current.name} has already been investigated` };
-  }
-  if (type === "defend_leyline" && current.leylineStrength <= 0) {
-    return { code: "strategy_leyline_unavailable", message: `${current.name} has no leyline to defend` };
-  }
-  if (type === "rest" && !isSafeRestRegion(current.id)) {
-    return { code: "strategy_rest_unavailable", message: "Rest is only safe at the residence or church" };
-  }
-  if (
-    type === "prepare_workshop" &&
-    current.id !== "tohsaka-residence" &&
-    current.controlledBy !== STRATEGY_FACTION_ID
-  ) {
-    return { code: "operations_order_invalid", message: "A workshop requires the residence or a controlled leyline" };
-  }
+  if (type === "investigate" && current.investigated) return { code: "strategy_region_already_investigated", message: `${current.name} has already been investigated` };
+  if (type === "defend_leyline" && current.leylineStrength <= 0) return { code: "strategy_leyline_unavailable", message: `${current.name} has no leyline to defend` };
+  if (type === "rest" && !isSafeRestRegion(current.id)) return { code: "strategy_rest_unavailable", message: "Rest is only safe at a residence or the church" };
+  if (type === "prepare_workshop" && current.id !== "tohsaka-residence" && current.controlledBy !== STRATEGY_FACTION_ID) return { code: "operations_order_invalid", message: "A workshop requires the residence or a controlled leyline" };
   return undefined;
 }
 
-function appendPlayerOrderEffects(
-  state: GameState,
-  order: StrategicOrder,
-  events: AllDomainEvent[],
-  nextSequence: () => number,
-): void {
-  const region = state.strategy.regions[order.destinationRegionId];
-  switch (order.type) {
-    case "move":
-      events.push({
-        type: "strategy.exposure_changed",
-        sequence: nextSequence(),
-        exposure: Math.min(100, state.strategy.exposure + 5),
-      });
-      break;
-    case "investigate":
-      if (!region.investigated) {
-        events.push({ type: "strategy.region_investigated", sequence: nextSequence(), regionId: region.id });
-      }
-      events.push({
-        type: "strategy.exposure_changed",
-        sequence: nextSequence(),
-        exposure: Math.min(100, state.strategy.exposure + 8),
-      });
-      break;
-    case "defend_leyline":
-      if (region.controlledBy !== STRATEGY_FACTION_ID) {
-        events.push({
-          type: "strategy.leyline_controlled",
-          sequence: nextSequence(),
-          regionId: region.id,
-          factionId: STRATEGY_FACTION_ID,
-        });
-      }
-      events.push({
-        type: "strategy.exposure_changed",
-        sequence: nextSequence(),
-        exposure: Math.min(100, state.strategy.exposure + 6),
-      });
-      break;
-    case "ambush":
-      events.push({
-        type: "strategy.exposure_changed",
-        sequence: nextSequence(),
-        exposure: Math.min(100, state.strategy.exposure + 4),
-      });
-      break;
-    case "rest":
-      events.push(
-        {
-          type: "strategy.rested",
-          sequence: nextSequence(),
-          masterId: STRATEGY_MASTER_ID,
-          servantId: STRATEGY_SERVANT_ID,
-          healthRestored: 12,
-          masterManaRestored: 20,
-          servantManaRestored: 15,
-        },
-        {
-          type: "strategy.exposure_changed",
-          sequence: nextSequence(),
-          exposure: Math.max(0, state.strategy.exposure - 8),
-        },
-      );
-      break;
-    case "prepare_workshop":
-      events.push(
-        { type: "operations.workshop_prepared", sequence: nextSequence(), prepared: true },
-        {
-          type: "strategy.exposure_changed",
-          sequence: nextSequence(),
-          exposure: Math.min(100, state.strategy.exposure + 3),
-        },
-      );
-      break;
+function appendOrderEffects(state: GameState, factionId: FactionId, order: StrategicOrder, events: AllDomainEvent[], nextSequence: () => number): void {
+  const faction = getStrategicFaction(state, factionId);
+  if (!faction) return;
+  let exposure = faction.exposure;
+  if (order.type === "move") exposure += 5;
+  if (order.type === "investigate") exposure += 8;
+  if (order.type === "defend_leyline") exposure += 6;
+  if (order.type === "ambush") exposure += 4;
+  if (order.type === "prepare_workshop") exposure += 3;
+  if (order.type === "rest") exposure -= 8;
+  events.push({ type: "operations.faction_exposure_changed", sequence: nextSequence(), factionId, exposure: Math.max(0, Math.min(100, exposure)) });
+
+  if (factionId === STRATEGY_FACTION_ID) {
+    const region = state.strategy.regions[order.destinationRegionId];
+    if (order.type === "investigate" && !region.investigated) events.push({ type: "strategy.region_investigated", sequence: nextSequence(), regionId: region.id });
+    if (order.type === "defend_leyline" && region.controlledBy !== STRATEGY_FACTION_ID) events.push({ type: "strategy.leyline_controlled", sequence: nextSequence(), regionId: region.id, factionId: STRATEGY_FACTION_ID });
+    if (order.type === "rest") events.push({ type: "strategy.rested", sequence: nextSequence(), masterId: STRATEGY_MASTER_ID, servantId: STRATEGY_SERVANT_ID, healthRestored: 12, masterManaRestored: 20, servantManaRestored: 15 });
+    if (order.type === "prepare_workshop") events.push({ type: "operations.workshop_prepared", sequence: nextSequence(), prepared: true });
   }
 }
 
-function appendEnemyOrderEffects(
-  state: GameState,
-  order: StrategicOrder,
-  events: AllDomainEvent[],
-  nextSequence: () => number,
-): void {
-  const delta = order.type === "move" ? 5 : order.type === "ambush" ? 2 : 4;
+function appendBountyIfNeeded(state: GameState, events: AllDomainEvent[], nextSequence: () => number): void {
+  if (state.strategy.churchBounty?.active) return;
+  const target = Object.values(state.strategy.factions)
+    .filter(faction => faction.status === "active" && faction.exposure >= 75)
+    .sort((a, b) => b.exposure - a.exposure || String(a.id).localeCompare(String(b.id)))[0];
+  if (!target) return;
   events.push({
-    type: "operations.enemy_exposure_changed",
+    type: "diplomacy.church_bounty_issued",
     sequence: nextSequence(),
-    exposure: Math.min(100, state.strategy.enemyExposure + delta),
+    bounty: {
+      id: `church-bounty-${state.strategy.day}-${target.id}`,
+      targetFactionId: target.id,
+      issuedDay: state.strategy.day,
+      reason: `${target.name}的暴露度与魔力活动已威胁圣杯战争隐秘性。`,
+      intelligenceReward: 20,
+      active: true,
+    },
   });
 }
 
-function timeline(
-  sequence: number,
-  phase: OperationPhase,
-  message: string,
-  regionId?: RegionId,
-): AllDomainEvent {
+function timeline(sequence: number, phase: OperationPhase, message: string, regionId?: RegionId): AllDomainEvent {
   const base: StrategyTimelineEntry = { id: `timeline-${sequence}`, phase, message };
-  const entry = regionId ? { ...base, regionId } : base;
-  return { type: "operations.timeline_added", sequence, entry };
-}
-
-function detectionMessage(
-  outcome: "mutual" | "player_only" | "enemy_only" | "missed",
-  advantage: "player" | "enemy" | "none",
-): string {
-  if (outcome === "player_only") return "我方单向发现敌人，可选择是否发动先制遭遇。";
-  if (outcome === "enemy_only") return "敌方先一步确认我方位置，遭遇将以敌方伏击开始。";
-  if (outcome === "mutual" && advantage === "player") return "双方互相发现，我方阵地准备取得先制优势。";
-  if (outcome === "mutual" && advantage === "enemy") return "双方互相发现，但敌方伏击部署占据优势。";
-  if (outcome === "mutual") return "双方同时确认彼此位置，形成正面遭遇。";
-  return "双方均未确认对方位置。";
+  return { type: "operations.timeline_added", sequence, entry: regionId ? { ...base, regionId } : base };
 }
 
 function failure(code: DomainError["code"], message: string): OperationsCommandResult {
