@@ -25,6 +25,7 @@ function baseUnit(
     Partial<Pick<BattleUnitState, "deployed">>,
 ): BattleUnitState {
   return {
+    ...definition,
     remainingMovement: definition.movement,
     mainActionAvailable: true,
     reactionAvailable: true,
@@ -35,7 +36,6 @@ function baseUnit(
     barrier: 0,
     guardBonus: 0,
     battleContinuationActive: false,
-    ...definition,
   };
 }
 
@@ -65,16 +65,7 @@ export function createSchoolBattleState(): GameState {
       id: SCHOOL_BATTLE_ID,
       round: 1,
       activeUnitId: ARCHER_UNIT_ID,
-      initiative: [
-        ARCHER_UNIT_ID,
-        LANCER_UNIT_ID,
-        RIN_UNIT_ID,
-        SABER_UNIT_ID,
-        SHIROU_UNIT_ID,
-        CASTER_UNIT_ID,
-        ASSASSIN_UNIT_ID,
-        SOUICHIROU_UNIT_ID,
-      ],
+      initiative: [ARCHER_UNIT_ID, LANCER_UNIT_ID, RIN_UNIT_ID],
       participatingFactionIds: [TOHSAKA_FACTION_ID, LANCER_FACTION_ID],
       tiles,
       units: {
