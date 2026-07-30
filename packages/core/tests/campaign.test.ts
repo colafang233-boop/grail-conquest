@@ -43,6 +43,30 @@ describe("three-night campaign", () => {
     expect(state.campaign.objectives.every(objective => !objective.completed)).toBe(true);
   });
 
+  it("restricts rest and workshop preparation to the route home or controlled territory", () => {
+    const initial = start("emiya-route");
+    const emiya = initial.strategy.factions[EMIYA_FACTION_ID]!;
+    const awayFromHome: GameState = {
+      ...initial,
+      strategy: {
+        ...initial.strategy,
+        currentRegionId: "school",
+        factions: {
+          ...initial.strategy.factions,
+          [EMIYA_FACTION_ID]: { ...emiya, regionId: "school" },
+        },
+      },
+    };
+
+    const rest = processCommand(awayFromHome, { type: "operations.submit_order", orderType: "rest" });
+    expect(rest.ok).toBe(false);
+    if (!rest.ok) expect(rest.error.code).toBe("strategy_rest_unavailable");
+
+    const workshop = processCommand(awayFromHome, { type: "operations.submit_order", orderType: "prepare_workshop" });
+    expect(workshop.ok).toBe(false);
+    if (!workshop.ok) expect(workshop.error.code).toBe("operations_order_invalid");
+  });
+
   it("completes the Tohsaka route after the third night", () => {
     const initial = createSchoolBattleState();
     const lateCampaign: GameState = {
