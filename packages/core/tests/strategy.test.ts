@@ -161,6 +161,7 @@ describe("Fuyuki strategic layer", () => {
     expect(retreated.state.battle.units[ARCHER_UNIT_ID]?.mana).toBe(22);
     expect(retreated.state.battle.contracts[TOHSAKA_FACTION_ID]?.commandSeals).toBe(2);
     expect(retreated.state.scenario.clues.map(clue => clue.id)).toContain("causality_reversal");
-    expect(retreated.events.at(-1)?.type).toBe("strategy.returned");
+    expect(retreated.events.map(event => event.type)).toContain("strategy.returned");
+    expect(retreated.events.map(event => event.type)).toContain("campaign.objective_completed");
   });
 });

@@ -1,7 +1,7 @@
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
 
-export type GameMode = "strategy" | "battle";
+export type GameMode = "setup" | "strategy" | "battle";
 export type RegionId =
   | "tohsaka-residence"
   | "emiya-residence"
@@ -35,6 +35,9 @@ export type UnitRole = "servant" | "master" | "familiar";
 export type CommandSealEffect = "recall" | "extra_turn" | "mana_infusion" | "reject_death";
 export type ScenarioPhase = "investigation" | "encounter" | "noble_phantasm_warning" | "completed";
 export type ScenarioOutcome = "retreated_with_intel" | "enemy_defeated" | "master_defeated" | "servant_defeated";
+export type CampaignRouteId = "tohsaka-route" | "emiya-route" | "ryudou-route";
+export type CampaignStatus = "not_started" | "active" | "completed";
+export type CampaignOutcome = "victory" | "defeat" | "partial";
 
 export type AbilityId =
   | "archer_projected_shot"
@@ -66,7 +69,7 @@ export interface NoblePhantasmState {
   readonly requiredCharge: number;
   readonly cooldownRemaining: number;
   readonly interruptThreshold: number;
-  readonly targetId?: UnitId;
+  readonly targetId?: UnitId | undefined;
 }
 
 export interface IntelClue {
@@ -97,8 +100,36 @@ export interface ScenarioState {
   readonly objective: string;
   readonly warningRound: number;
   readonly clues: readonly IntelClue[];
-  readonly outcome?: ScenarioOutcome;
-  readonly report?: ScenarioReport;
+  readonly outcome?: ScenarioOutcome | undefined;
+  readonly report?: ScenarioReport | undefined;
+}
+
+export interface CampaignObjectiveProgress {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly completed: boolean;
+  readonly failed: boolean;
+}
+
+export interface CampaignResult {
+  readonly outcome: CampaignOutcome;
+  readonly title: string;
+  readonly summary: string;
+  readonly score: number;
+}
+
+export interface CampaignState {
+  readonly id: "three-night-war";
+  readonly status: CampaignStatus;
+  readonly routeId?: CampaignRouteId | undefined;
+  readonly selectedPlayerFactionId?: FactionId | undefined;
+  readonly currentNight: number;
+  readonly maxNights: 3;
+  readonly objectives: readonly CampaignObjectiveProgress[];
+  readonly flags: Readonly<Record<string, boolean>>;
+  readonly consequences: readonly string[];
+  readonly result?: CampaignResult | undefined;
 }
 
 export interface StrategicOrder {
@@ -120,14 +151,14 @@ export interface StrategicFactionState {
   readonly masterUnitId: UnitId;
   readonly servantUnitIds: readonly UnitId[];
   readonly regionId: RegionId;
-  readonly knownRegionId?: RegionId;
+  readonly knownRegionId?: RegionId | undefined;
   readonly exposure: number;
   readonly status: StrategicFactionStatus;
   readonly aiProfile: StrategicAiProfile;
   readonly knownIntel: readonly string[];
   readonly resources: StrategicFactionResources;
   readonly workshopLevel: number;
-  readonly order?: StrategicOrder;
+  readonly order?: StrategicOrder | undefined;
 }
 
 export interface DiplomacyRelation {
@@ -165,10 +196,10 @@ export interface OperationDetection {
   readonly enemyScore: number;
   readonly playerRoll: number;
   readonly enemyRoll: number;
-  readonly firstFactionId?: FactionId;
-  readonly secondFactionId?: FactionId;
-  readonly firstDetectedSecond?: boolean;
-  readonly secondDetectedFirst?: boolean;
+  readonly firstFactionId?: FactionId | undefined;
+  readonly secondFactionId?: FactionId | undefined;
+  readonly firstDetectedSecond?: boolean | undefined;
+  readonly secondDetectedFirst?: boolean | undefined;
 }
 
 export interface StrategyEncounterQueueItem {
@@ -180,14 +211,14 @@ export interface StrategyEncounterQueueItem {
   readonly mandatory: boolean;
   readonly participantFactionIds: readonly FactionId[];
   readonly hostilePairs: readonly string[];
-  readonly advantagedFactionId?: FactionId;
+  readonly advantagedFactionId?: FactionId | undefined;
 }
 
 export interface StrategyTimelineEntry {
   readonly id: string;
   readonly phase: OperationPhase;
   readonly message: string;
-  readonly regionId?: RegionId;
+  readonly regionId?: RegionId | undefined;
 }
 
 export interface StrategyRegionState {
@@ -199,8 +230,8 @@ export interface StrategyRegionState {
   readonly leylineStrength: number;
   readonly discovered: boolean;
   readonly investigated: boolean;
-  readonly controlledBy?: FactionId;
-  readonly encounterId?: EncounterId;
+  readonly controlledBy?: FactionId | undefined;
+  readonly encounterId?: EncounterId | undefined;
 }
 
 export interface StrategyState {
@@ -209,29 +240,29 @@ export interface StrategyState {
   readonly maxActionPoints: number;
   readonly currentRegionId: RegionId;
   readonly enemyRegionId: RegionId;
-  readonly knownEnemyRegionId?: RegionId;
+  readonly knownEnemyRegionId?: RegionId | undefined;
   readonly exposure: number;
   readonly enemyExposure: number;
   readonly objective: string;
   readonly regions: Readonly<Record<RegionId, StrategyRegionState>>;
   readonly phase: OperationPhase;
-  readonly playerOrder?: StrategicOrder;
-  readonly enemyOrder?: StrategicOrder;
+  readonly playerOrder?: StrategicOrder | undefined;
+  readonly enemyOrder?: StrategicOrder | undefined;
   readonly factions: Readonly<Record<string, StrategicFactionState>>;
   readonly diplomacy: Readonly<Record<string, DiplomacyRelation>>;
   readonly allianceOffers: readonly AllianceOffer[];
-  readonly churchBounty?: ChurchBounty;
+  readonly churchBounty?: ChurchBounty | undefined;
   readonly encounterQueue: readonly StrategyEncounterQueueItem[];
-  readonly activeEncounterId?: EncounterId;
+  readonly activeEncounterId?: EncounterId | undefined;
   readonly activeParticipantFactionIds: readonly FactionId[];
   readonly resolutionTimeline: readonly StrategyTimelineEntry[];
-  readonly lastDetection?: OperationDetection;
+  readonly lastDetection?: OperationDetection | undefined;
   readonly lastDetections: readonly OperationDetection[];
   readonly operationSeed: number;
   readonly workshopPrepared: boolean;
-  readonly pendingEncounterId?: EncounterId;
+  readonly pendingEncounterId?: EncounterId | undefined;
   readonly completedEncounterIds: readonly string[];
-  readonly lastReport?: ScenarioReport;
+  readonly lastReport?: ScenarioReport | undefined;
 }
 
 export interface HexTileState {
@@ -267,7 +298,7 @@ export interface BattleUnitState {
   readonly barrier: number;
   readonly guardBonus: number;
   readonly battleContinuationActive: boolean;
-  readonly noblePhantasm?: NoblePhantasmState;
+  readonly noblePhantasm?: NoblePhantasmState | undefined;
 }
 
 export interface ContractState {
@@ -295,9 +326,10 @@ export interface BattleState {
 }
 
 export interface GameState {
-  readonly schemaVersion: 4;
+  readonly schemaVersion: 5;
   readonly sequence: number;
   readonly mode: GameMode;
+  readonly campaign: CampaignState;
   readonly strategy: StrategyState;
   readonly scenario: ScenarioState;
   readonly battle: BattleState;

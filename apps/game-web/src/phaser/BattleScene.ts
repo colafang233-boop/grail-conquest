@@ -6,11 +6,11 @@ import {
   LANCER_UNIT_ID,
   RIN_UNIT_ID,
   SABER_UNIT_ID,
-  TOHSAKA_FACTION_ID,
   findLegalAbilityTargets,
   findLegalAttackTargets,
   findLegalNoblePhantasmTargets,
   findReachableHexes,
+  getPlayerFactionId,
   hexDistance,
   hexKey,
   type BattleUnitState,
@@ -109,8 +109,9 @@ export class BattleScene extends Phaser.Scene {
   private canPlayerAct(): boolean {
     const snapshot = gameEngine.getSnapshot();
     const activeUnit = snapshot.state.battle.units[snapshot.state.battle.activeUnitId];
+    const playerFactionId = getPlayerFactionId(snapshot.state);
     return Boolean(
-      activeUnit?.deployed && activeUnit.factionId === TOHSAKA_FACTION_ID &&
+      activeUnit?.deployed && activeUnit.factionId === playerFactionId &&
       snapshot.state.scenario.phase !== "investigation" && snapshot.state.scenario.phase !== "completed",
     );
   }
@@ -156,7 +157,8 @@ export class BattleScene extends Phaser.Scene {
       if (mode.type === "noble_phantasm") for (const unit of findLegalNoblePhantasmTargets(battle, activeUnit.id)) targetIds.add(unit.id);
     }
 
-    const contract = battle.contracts[TOHSAKA_FACTION_ID];
+    const playerFactionId = getPlayerFactionId(snapshot.state);
+    const contract = battle.contracts[playerFactionId];
     const master = contract ? battle.units[contract.masterId] : undefined;
     const servant = contract ? battle.units[contract.servantId] : undefined;
     const protectedMasterId = contract && master?.deployed && servant?.deployed && !servant.defeated &&

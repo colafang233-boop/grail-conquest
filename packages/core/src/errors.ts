@@ -51,7 +51,10 @@ export type DomainErrorCode =
   | "operations_order_missing"
   | "operations_order_invalid"
   | "operations_encounter_missing"
-  | "operations_encounter_mandatory";
+  | "operations_encounter_mandatory"
+  | "campaign_route_invalid"
+  | "campaign_already_active"
+  | "campaign_not_completed";
 
 export interface DomainError {
   readonly code: DomainErrorCode;

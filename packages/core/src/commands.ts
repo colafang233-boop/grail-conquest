@@ -1,3 +1,4 @@
+import type { CampaignGameCommand } from "./campaign-commands";
 import type { HexCoord } from "./hex";
 import type { BattleId, FactionId, UnitId } from "./ids";
 import type { OperationsGameCommand } from "./operations-commands";
@@ -29,7 +30,7 @@ export interface UseAbilityCommand {
   readonly battleId: BattleId;
   readonly actorId: UnitId;
   readonly abilityId: AbilityId;
-  readonly targetId?: UnitId;
+  readonly targetId?: UnitId | undefined;
 }
 
 export interface PrepareNoblePhantasmCommand {
@@ -84,4 +85,5 @@ export type AllGameCommand =
   | GameCommand
   | AbilityGameCommand
   | StrategyGameCommand
-  | OperationsGameCommand;
+  | OperationsGameCommand
+  | CampaignGameCommand;

@@ -1,3 +1,4 @@
+import { createInitialCampaignState } from "./campaign";
 import { hexKey } from "./hex";
 import { battleId, factionId, unitId } from "./ids";
 import { createInitialScenarioState } from "./scenario";
@@ -56,9 +57,10 @@ export function createSchoolBattleState(): GameState {
   }
 
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     sequence: 0,
     mode: "strategy",
+    campaign: createInitialCampaignState(true),
     strategy: createInitialStrategyState(),
     scenario: createInitialScenarioState(),
     battle: {
@@ -154,5 +156,14 @@ export function createSchoolBattleState(): GameState {
         },
       },
     },
+  };
+}
+
+export function createNewGameState(): GameState {
+  const state = createSchoolBattleState();
+  return {
+    ...state,
+    mode: "setup",
+    campaign: createInitialCampaignState(false),
   };
 }

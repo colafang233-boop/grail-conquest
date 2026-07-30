@@ -1,34 +1,31 @@
 # Grail Conquest
 
-A browser-first turn-based strategy prototype built around Holy Grail War-style decisions: Master–Servant contracts, limited command seals, hidden identities, multi-faction strategic operations, temporary diplomacy, and tactical hex-grid encounters.
+A browser-first turn-based strategy prototype built around Holy Grail War-style decisions: selectable Master–Servant routes, limited command seals, hidden identities, simultaneous multi-faction operations, temporary diplomacy, and tactical hex-grid encounters.
 
-The current prototype deliberately uses placeholder shapes and focuses on architecture rather than copyrighted art, music, or extracted game assets.
+The prototype deliberately uses placeholder shapes and focuses on architecture rather than copyrighted art, music, or extracted game assets.
 
 ## Current playable slice
 
-- One authoritative deterministic TypeScript `GameState` across strategic and tactical layers
-- Command → domain event → reducer state pipeline
-- Eight-region Phaser Fuyuki map including Emiya residence and Ryudou Temple
-- Four registered factions: Tohsaka/Archer, Lancer, Emiya/Saber, and Ryudou/Caster with Assassin
-- Nightly planning followed by four-way hidden orders, simultaneous movement, detection, encounter generation, and dawn settlement
-- Faction-specific strategic AI profiles: player, honorable, hunter, and fortifier
-- Multi-party contact groups and two- or three-faction tactical encounters
-- Diplomacy states: neutral, truce, allied, hostile, and betrayed
-- Temporary alliance offers, expiry, shared detection, and explicit agreement breaking
-- Church collective-threat bounties for highly exposed factions
-- Caster workshop control at Ryudou Temple and workshop preparation bonuses
-- Persistent faction positions, exposure, intelligence, resources, status, orders, and known sightings
-- Data-driven authored abilities:
-  - Archer: projected shot, projected shield, guard support
-  - Lancer: high-speed thrust, battle continuation, sweeping strike
-  - Saber: Invisible Air, Instinct, Mana Burst
-  - Caster: Dragon Tooth defense, boundary field, mana drain, workshop reinforcement
-- Noble phantasms for Archer, Lancer, Saber/Excalibur, and Caster/Rule Breaker
-- Deployed-unit battle rosters so only encounter participants occupy the hex grid and initiative queue
-- Generic non-player tactical AI for Lancer, Saber, Caster, and Assassin turns
-- Action-derived identity clues for Lancer, Saber, and Caster candidates
-- Browser-local v4 save/load with automatic migration from v2 and v3 saves
-- Vitest coverage for operations, diplomacy, multi-party encounters, deployment, abilities, bounties, combat, and replay determinism
+- Selectable three-night mini-campaign routes:
+  - Tohsaka / Archer: true-name intelligence and command-seal conservation
+  - Emiya / Saber: protection, encounters, and temporary alliances
+  - Ryudou / Caster: workshop growth and leyline control
+- Campaign progression, route objectives, consequences, scoring, and ending report
+- One authoritative deterministic TypeScript `GameState`
+- Command → serializable domain event → reducer pipeline
+- Eight-region Phaser Fuyuki map
+- Four active factions with hidden simultaneous orders
+- Two- and three-party encounters, diplomacy, shared detection, betrayal, and church bounties
+- Tactical Master–Servant contracts, command seals, mana transfer, guard reactions, abilities, noble phantasms, and AI turns
+- Runtime content registry validation with readable cross-reference diagnostics
+- Browser Replay inspector:
+  - event stepping and filtering
+  - state snapshots
+  - Replay JSON import/export
+  - final-state fingerprint validation
+- Deterministic simulation CLI with faction win rate, encounter rate, order usage, command-seal usage, and remaining-resource metrics
+- Browser-local v5 campaign saves with migration from v2–v4
+- Vitest coverage for campaign routes, content validation, replay determinism, simulation, operations, diplomacy, combat, and abilities
 - GitHub Actions CI and GitHub Pages deployment
 
 ## Stack
@@ -48,30 +45,36 @@ pnpm install
 pnpm dev
 ```
 
-Then open the URL printed by Vite.
-
 ## Validate
 
 ```bash
 pnpm check
 ```
 
-This runs type checking, unit tests, and the production build.
+This runs workspace type checking, Core tests, and production builds.
+
+## Run balance simulation
+
+```bash
+pnpm simulate -- --runs 1000 --seed 20260730
+```
+
+Use `--strict` to return a non-zero exit code when regression thresholds produce warnings. Add `--compact` for one-line JSON.
 
 ## Architecture boundary
 
 ```text
-React UI / Phaser presentation
-             ↓ commands
-       application engine
-             ↓
-       pure rules core
-             ↓ events
-          reducers
+React UI / Phaser presentation / simulation CLI
+                    ↓ commands
+              application engine
+                    ↓
+              pure rules core
+                    ↓ events
+                 reducers
 ```
 
-`packages/core` has no React, Phaser, browser API, clock, or ambient random-number dependency. Faction orders, diplomacy, detection outcomes, encounter groups, abilities, noble phantasms, contracts, and scenario transitions all emit serializable domain events into one history.
+`packages/core` has no React, Phaser, browser API, clock, or ambient random-number dependency. Campaign progression, content validation, faction orders, diplomacy, detections, encounters, abilities, contracts, replay documents, and balance reports remain deterministic Core concerns.
 
 ## Repository status
 
-This is a non-commercial technical prototype. Existing franchise terminology may appear as temporary design reference text. Before public distribution, replace reference names and obtain appropriate rights for any protected characters, visual assets, audio, or story content.
+This is a non-commercial technical prototype. Existing franchise terminology may appear as temporary design reference text. Before public distribution, replace reference names and obtain appropriate rights for protected characters, visual assets, audio, or story content.

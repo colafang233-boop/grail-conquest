@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import {
-  STRATEGY_FACTION_ID,
   getDiplomacyRelation,
+  getPlayerFactionId,
   type RegionId,
   type StrategyRegionState,
 } from "@grail/core";
@@ -86,6 +86,7 @@ export class StrategyMapScene extends Phaser.Scene {
   private refresh(): void {
     const state = gameEngine.getSnapshot().state;
     const strategy = state.strategy;
+    const playerFactionId = getPlayerFactionId(state);
     const current = strategy.regions[strategy.currentRegionId];
     const plannedDestination = strategy.playerOrder?.type === "move" ? strategy.playerOrder.destinationRegionId : undefined;
     const encounterRegions = new Set(strategy.encounterQueue.map(item => item.regionId));
@@ -102,22 +103,22 @@ export class StrategyMapScene extends Phaser.Scene {
       const region = strategy.regions[regionId];
       const adjacent = current.connections.includes(regionId);
       const currentRegion = regionId === current.id;
-      const controlled = region.controlledBy === STRATEGY_FACTION_ID;
+      const controlled = region.controlledBy === playerFactionId;
       const planned = regionId === plannedDestination;
       const encounterReady = encounterRegions.has(regionId);
       const visibleFactions = Object.values(strategy.factions)
         .filter(faction => faction.status === "active" && faction.regionId === regionId)
         .filter(faction => {
-          if (faction.id === STRATEGY_FACTION_ID) return true;
+          if (faction.id === playerFactionId) return true;
           if (faction.knownRegionId === regionId) return true;
-          const relation = getDiplomacyRelation(state, STRATEGY_FACTION_ID, faction.id);
+          const relation = getDiplomacyRelation(state, playerFactionId, faction.id);
           return relation?.status === "allied" || relation?.status === "truce";
         })
         .sort((a, b) => String(a.id).localeCompare(String(b.id)));
       const factionCodes = visibleFactions.map(faction => factionCode(String(faction.id))).join("·");
       const hasKnownHostile = visibleFactions.some(faction => {
-        if (faction.id === STRATEGY_FACTION_ID) return false;
-        const relation = getDiplomacyRelation(state, STRATEGY_FACTION_ID, faction.id);
+        if (faction.id === playerFactionId) return false;
+        const relation = getDiplomacyRelation(state, playerFactionId, faction.id);
         return relation?.status === "hostile" || relation?.status === "betrayed";
       });
 

@@ -41,7 +41,7 @@ function enterFirstEncounter(state: GameState): GameState {
 describe("nightly operation cycle", () => {
   it("starts in planning with four hidden faction states", () => {
     const state = createSchoolBattleState();
-    expect(state.schemaVersion).toBe(4);
+    expect(state.schemaVersion).toBe(5);
     expect(state.strategy.phase).toBe("planning");
     expect(state.strategy.playerOrder).toBeUndefined();
     expect(state.strategy.enemyOrder).toBeUndefined();

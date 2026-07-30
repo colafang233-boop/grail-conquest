@@ -1,0 +1,15 @@
+.campaign-progress-card {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #4a4d70;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(39, 35, 61, 0.9), rgba(16, 22, 33, 0.96));
+}
+.campaign-progress-list { display: grid; gap: 7px; margin-top: 11px; }
+.campaign-progress-list article { display: grid; grid-template-columns: 24px 1fr; gap: 8px; padding: 9px; border: 1px solid #373f55; border-radius: 10px; }
+.campaign-progress-list article.completed { border-color: #4a806f; background: rgba(42, 91, 76, 0.2); }
+.campaign-progress-list i { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #687089; border-radius: 50%; color: #adb5c6; font-style: normal; }
+.campaign-progress-list article.completed i { border-color: #6bb39e; color: #b9ebdc; }
+.campaign-progress-list strong, .campaign-progress-list small { display: block; }
+.campaign-progress-list small { margin-top: 3px; color: #8f9bad; line-height: 1.4; }
+.faction-overview-list article.player-faction { border-color: #83704b; background: rgba(95, 75, 35, 0.18); }
