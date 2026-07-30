@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "./accessibility.css";
 import App from "./App";
 import "./browser-settings";
 import { initializeBrowserContent } from "./content/browser-content";
