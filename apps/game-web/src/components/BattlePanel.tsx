@@ -1,7 +1,8 @@
 import {
-  TOHSAKA_FACTION_ID,
   evaluateIdentityCandidates,
   findLegalAttackTargets,
+  getPlayerFactionId,
+  getSelectedPlayerFaction,
   hexDistance,
   type CommandSealEffect,
 } from "@grail/core";
@@ -28,22 +29,25 @@ const PHASE_LABELS = {
 export function BattlePanel() {
   const snapshot = useGameSnapshot();
   const mode = useInteractionMode();
-  const { battle, scenario } = snapshot.state;
+  const state = snapshot.state;
+  const { battle, scenario } = state;
+  const playerFactionId = getPlayerFactionId(state);
+  const playerFaction = getSelectedPlayerFaction(state);
   const activeUnit = battle.units[battle.activeUnitId];
-  const contract = battle.contracts[TOHSAKA_FACTION_ID];
+  const contract = battle.contracts[playerFactionId];
   const master = contract ? battle.units[contract.masterId] : undefined;
   const servant = contract ? battle.units[contract.servantId] : undefined;
 
   if (!activeUnit) return <aside className="battle-panel">当前行动单位不存在。</aside>;
 
-  const playerTurn = activeUnit.factionId === TOHSAKA_FACTION_ID;
+  const playerTurn = activeUnit.factionId === playerFactionId;
   const battleActive = scenario.phase === "encounter" || scenario.phase === "noble_phantasm_warning";
   const playerCanAct = playerTurn && battleActive;
   const attackTargets = playerCanAct ? findLegalAttackTargets(battle, activeUnit.id) : [];
   const candidates = evaluateIdentityCandidates(scenario.clues);
   const contractDistance = master && servant ? hexDistance(master.position, servant.position) : undefined;
   const guardReady = Boolean(
-    contract && master && servant && !master.defeated && !servant.defeated &&
+    contract && master?.deployed && servant?.deployed && !master.defeated && !servant.defeated &&
     servant.reactionAvailable && contractDistance !== undefined &&
     contractDistance <= contract.guardRange + servant.guardBonus,
   );
@@ -81,7 +85,7 @@ export function BattlePanel() {
   return (
     <aside className="battle-panel">
       <div className="panel-heading">
-        <p className="eyebrow">SCHOOL NIGHT · ABILITY SLICE</p>
+        <p className="eyebrow">{playerFaction?.name ?? "PLAYER FACTION"} · NIGHT {state.campaign.currentNight}</p>
         <h2>战术终端</h2>
       </div>
 
@@ -108,7 +112,7 @@ export function BattlePanel() {
 
       <section className="unit-card">
         <div>
-          <p className="eyebrow">{playerTurn ? "当前行动" : "敌方行动结算中"}</p>
+          <p className="eyebrow">{playerTurn ? "当前行动" : "其他阵营行动结算中"}</p>
           <h3>{activeUnit.name}</h3>
           <span className="role-chip">{activeUnit.role}</span>
         </div>
@@ -186,14 +190,14 @@ export function BattlePanel() {
       )}
 
       <button type="button" className="primary-action" disabled={!playerCanAct} onClick={endTurn}>
-        {playerTurn ? "结束行动" : "敌方行动中…"}
+        {playerTurn ? "结束行动" : "其他阵营行动中…"}
       </button>
 
       {snapshot.lastError && <p className="error-message" role="alert">{snapshot.lastError.message}</p>}
 
       <section className="event-log">
         <div className="section-title"><h3>领域事件</h3><span>{snapshot.eventLog.length}</span></div>
-        {recentEvents.length === 0 ? <p className="muted">调查结界后，战斗与情报事件会记录在这里。</p> : (
+        {recentEvents.length === 0 ? <p className="muted">行动后，战斗与情报事件会记录在这里。</p> : (
           <ol>{recentEvents.map(event => <li key={event.sequence}><span>#{event.sequence}</span><code>{event.type}</code></li>)}</ol>
         )}
       </section>
