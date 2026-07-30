@@ -1,20 +1,22 @@
 import { useEffect } from "react";
-import { LANCER_UNIT_ID } from "@grail/core";
+import { TOHSAKA_FACTION_ID } from "@grail/core";
 import { useGameSnapshot } from "./hooks/useGameSnapshot";
-import { runSchoolNightEnemyTurn } from "./scenario-ai";
+import { runEncounterAiTurn } from "./scenario-ai";
 
 export function useScenarioController(): void {
   const snapshot = useGameSnapshot();
 
   useEffect(() => {
+    const activeUnit = snapshot.state.battle.units[snapshot.state.battle.activeUnitId];
     if (
       snapshot.state.mode !== "battle" ||
       snapshot.state.scenario.phase === "investigation" ||
       snapshot.state.scenario.phase === "completed" ||
-      snapshot.state.battle.activeUnitId !== LANCER_UNIT_ID
+      !activeUnit?.deployed ||
+      activeUnit.factionId === TOHSAKA_FACTION_ID
     ) return;
 
-    const timer = window.setTimeout(runSchoolNightEnemyTurn, 520);
+    const timer = window.setTimeout(runEncounterAiTurn, 520);
     return () => window.clearTimeout(timer);
   }, [
     snapshot.version,
