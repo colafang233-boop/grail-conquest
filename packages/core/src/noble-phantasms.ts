@@ -16,26 +16,24 @@ export interface NoblePhantasmDefinition {
 
 export const NOBLE_PHANTASM_DEFINITIONS: Readonly<Record<string, NoblePhantasmDefinition>> = {
   archer_reality_marble: {
-    id: "archer_reality_marble",
-    name: "固有结界·未完成",
+    id: "archer_reality_marble", name: "固有结界·未完成",
     description: "以大量魔力展开未完成的固有结界，对锁定目标发动武装齐射。",
-    manaCost: 45,
-    range: 6,
-    power: 64,
-    requiredCharge: 2,
-    interruptThreshold: 18,
-    cooldown: 3,
+    manaCost: 45, range: 6, power: 64, requiredCharge: 2, interruptThreshold: 18, cooldown: 3,
   },
   lancer_causality_spear: {
-    id: "lancer_causality_spear",
-    name: "因果逆转之枪",
+    id: "lancer_causality_spear", name: "因果逆转之枪",
     description: "锁定目标后收束魔力，在下一次行动时释放高威胁单体宝具。",
-    manaCost: 38,
-    range: 8,
-    power: 82,
-    requiredCharge: 1,
-    interruptThreshold: 18,
-    cooldown: 3,
+    manaCost: 38, range: 8, power: 82, requiredCharge: 1, interruptThreshold: 18, cooldown: 3,
+  },
+  saber_excalibur: {
+    id: "saber_excalibur", name: "Excalibur",
+    description: "释放聚集于圣剑的光，对锁定目标发动高威力斩击。",
+    manaCost: 52, range: 7, power: 92, requiredCharge: 1, interruptThreshold: 20, cooldown: 4,
+  },
+  caster_rule_breaker: {
+    id: "caster_rule_breaker", name: "Rule Breaker",
+    description: "以破戒之符干涉契约和魔术防护。",
+    manaCost: 34, range: 3, power: 58, requiredCharge: 1, interruptThreshold: 16, cooldown: 3,
   },
 };
 
@@ -43,19 +41,14 @@ export function getNoblePhantasmDefinition(definitionId: string): NoblePhantasmD
   return NOBLE_PHANTASM_DEFINITIONS[definitionId];
 }
 
-export function findLegalNoblePhantasmTargets(
-  battle: BattleState,
-  servantId: UnitId,
-): readonly BattleUnitState[] {
+export function findLegalNoblePhantasmTargets(battle: BattleState, servantId: UnitId): readonly BattleUnitState[] {
   const servant = battle.units[servantId];
   const state = servant?.noblePhantasm;
-  if (!servant || servant.defeated || !state || state.phase !== "hidden") return [];
+  if (!servant || !servant.deployed || servant.defeated || !state || state.phase !== "hidden") return [];
   const definition = getNoblePhantasmDefinition(state.definitionId);
   if (!definition) return [];
-
   return Object.values(battle.units).filter(target =>
-    !target.defeated &&
-    target.factionId !== servant.factionId &&
+    target.deployed && !target.defeated && target.factionId !== servant.factionId &&
     hexDistance(servant.position, target.position) <= definition.range,
   );
 }

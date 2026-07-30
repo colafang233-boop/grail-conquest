@@ -9,5 +9,5 @@ export function isStrategyDomainEvent(event: AllDomainEvent): event is StrategyD
 }
 
 export function isOperationsDomainEvent(event: AllDomainEvent): event is OperationsDomainEvent {
-  return event.type.startsWith("operations.");
+  return event.type.startsWith("operations.") || event.type.startsWith("diplomacy.");
 }

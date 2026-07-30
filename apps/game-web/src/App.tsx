@@ -13,19 +13,18 @@ export default function App() {
 
   if (snapshot.state.mode === "strategy") return <StrategyScreen />;
 
-  const encounter = getEncounterDefinition(
-    snapshot.state.strategy.activeEncounterId ?? "school-night",
-  );
+  const encounter = getEncounterDefinition(snapshot.state.strategy.activeEncounterId ?? "school-night");
+  const participantCount = snapshot.state.strategy.activeParticipantFactionIds.length;
 
   return (
     <main className="app-shell">
       <section className="battle-stage">
         <header className="topbar">
           <div>
-            <p className="eyebrow">第 {snapshot.state.strategy.day} 夜 · {encounter.title}</p>
+            <p className="eyebrow">第 {snapshot.state.strategy.day} 夜 · {encounter.title} · {participantCount}方接触</p>
             <h1>Grail Conquest</h1>
           </div>
-          <div className="prototype-badge">OPERATIONS SLICE 0.7</div>
+          <div className="prototype-badge">FACTION SLICE 0.8</div>
         </header>
 
         <div className="mission-strip">
