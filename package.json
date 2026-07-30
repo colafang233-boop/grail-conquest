@@ -10,10 +10,11 @@
   "scripts": {
     "dev": "pnpm --filter @grail/game-web dev",
     "build": "pnpm -r --if-present build",
+    "bundle:check": "node scripts/check-web-bundle.mjs",
     "simulate": "pnpm --filter @grail/simulation-cli start",
     "simulate:smoke": "pnpm --filter @grail/simulation-cli start --runs 30 --seed 20260730 --compact",
     "test": "pnpm --filter @grail/core test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "check": "pnpm typecheck && pnpm test && pnpm simulate:smoke && pnpm build"
+    "check": "pnpm typecheck && pnpm test && pnpm simulate:smoke && pnpm build && pnpm bundle:check"
   }
 }
