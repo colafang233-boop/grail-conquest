@@ -136,7 +136,7 @@ export interface DiplomacyRelation {
   readonly secondFactionId: FactionId;
   readonly status: DiplomacyStatus;
   readonly sharedDetection: boolean;
-  readonly expiresDay?: number;
+  readonly expiresDay?: number | undefined;
   readonly betrayalCount: number;
 }
 
