@@ -11,25 +11,26 @@ export function StrategyScreen() {
             <p className="eyebrow">冬木市 · 第五次圣杯战争</p>
             <h1>Grail Conquest</h1>
           </div>
-          <div className="prototype-badge">OPERATIONS SLICE 0.7</div>
+          <div className="prototype-badge">FACTION SLICE 0.8</div>
         </header>
 
         <div className="mission-strip">
           <span className="mission-dot" />
           <div>
-            <strong>夜间作战目标</strong>
-            <p>在不知道敌方命令的情况下锁定计划，随后同步移动并依据暴露度、情报与伏击状态判定遭遇。</p>
+            <strong>多阵营作战目标</strong>
+            <p>在Saber、Lancer与Caster同时暗中行动时，通过停战、共享侦察和敌对关系控制多方接触的结果。</p>
           </div>
         </div>
 
         <StrategyCanvas />
 
         <div className="strategy-legend">
-          <span><i className="current" />当前位置</span>
+          <span><i className="current" />远坂阵营 T</span>
+          <span><i className="ally" />Saber阵营 S</span>
+          <span><i className="enemy" />Lancer阵营 L</span>
+          <span><i className="caster" />Caster阵营 C</span>
           <span><i className="planned" />计划路线</span>
-          <span><i className="enemy" />已知敌踪</span>
-          <span><i className="leyline" />已控制灵脉</span>
-          <span><i className="danger" />遭遇已生成</span>
+          <span><i className="danger" />多方遭遇</span>
           <span><i className="unknown" />战争迷雾</span>
         </div>
       </section>
