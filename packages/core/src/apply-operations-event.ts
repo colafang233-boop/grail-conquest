@@ -30,8 +30,12 @@ export function applyOperationsEvent(state: GameState, event: OperationsDomainEv
       for (const order of Object.values(event.orders)) next = updateFaction(next, order.factionId, faction => ({ ...faction, order }));
       return next;
     }
-    case "operations.phase_changed":
-      return { ...state, sequence: event.sequence, strategy: { ...state.strategy, phase: event.phase } };
+    case "operations.phase_changed": {
+      const phase = event.phase === "encounter_resolution" && state.strategy.encounterQueue.length === 0
+        ? "night_settlement"
+        : event.phase;
+      return { ...state, sequence: event.sequence, strategy: { ...state.strategy, phase } };
+    }
     case "operations.faction_moved": {
       let next = updateFaction(state, event.factionId, faction => ({ ...faction, regionId: event.to }));
       next = { ...next, sequence: event.sequence };
@@ -49,6 +53,9 @@ export function applyOperationsEvent(state: GameState, event: OperationsDomainEv
     case "operations.detection_resolved":
       return applyDetection(state, event);
     case "operations.encounter_queued":
+      if (!event.encounter.participantFactionIds.includes(STRATEGY_FACTION_ID)) {
+        return { ...state, sequence: event.sequence };
+      }
       return { ...state, sequence: event.sequence, strategy: { ...state.strategy, encounterQueue: [...state.strategy.encounterQueue, event.encounter] } };
     case "operations.encounter_removed":
       return { ...state, sequence: event.sequence, strategy: { ...state.strategy, encounterQueue: state.strategy.encounterQueue.filter(item => item.id !== event.queueId) } };
@@ -131,8 +138,13 @@ function enterEncounter(
   const firstFaction = firstFactionId ? getStrategicFaction(state, firstFactionId) : undefined;
   const firstServantId = firstFaction?.servantUnitIds.find(id => units[id]?.deployed && !units[id]?.defeated);
   const deployedInitiative = state.battle.initiative.filter(unitId => units[unitId]?.deployed && !units[unitId]?.defeated);
-  const activeUnitId = firstServantId ?? deployedInitiative[0] ?? state.battle.activeUnitId;
-  const initiative = [activeUnitId, ...deployedInitiative.filter(unitId => unitId !== activeUnitId)];
+  const additionalUnits = Object.values(units)
+    .filter(unit => unit.deployed && !unit.defeated && !deployedInitiative.includes(unit.id))
+    .map(unit => unit.id)
+    .sort((left, right) => String(left).localeCompare(String(right)));
+  const allDeployed = [...deployedInitiative, ...additionalUnits];
+  const activeUnitId = firstServantId ?? allDeployed[0] ?? state.battle.activeUnitId;
+  const initiative = [activeUnitId, ...allDeployed.filter(unitId => unitId !== activeUnitId)];
 
   return {
     ...state,
