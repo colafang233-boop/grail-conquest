@@ -1,6 +1,13 @@
 import { applyAllEvent } from "./apply-all-event";
 import type { AllDomainEvent } from "./all-events";
-import { isOperationsDomainEvent, isStrategyDomainEvent } from "./all-events";
+import {
+  isCampaignDomainEvent,
+  isOperationsDomainEvent,
+  isStrategyDomainEvent,
+} from "./all-events";
+import { evaluateCampaignProgress } from "./campaign";
+import type { CampaignGameCommand } from "./campaign-commands";
+import { executeCampaignCommand } from "./campaign-engine";
 import type { AllGameCommand, AbilityGameCommand, GameCommand } from "./commands";
 import type { DomainError } from "./errors";
 import type { DomainEvent as TacticalDomainEvent } from "./events";
@@ -19,6 +26,19 @@ export type ProcessCommandResult =
   | { readonly ok: false; readonly state: GameState; readonly events: readonly []; readonly error: DomainError };
 
 export function processCommand(state: GameState, command: AllGameCommand): ProcessCommandResult {
+  if (isCampaignCommand(command)) {
+    const execution = executeCampaignCommand(state, command);
+    if (!execution.ok) return failed(state, execution.error);
+    return finalize(state, execution.events);
+  }
+
+  if (state.mode === "setup") {
+    return failed(state, {
+      code: "campaign_route_invalid",
+      message: "Choose a campaign route before issuing game commands",
+    });
+  }
+
   if (isOperationsCommand(command)) {
     const execution = executeOperationsCommand(state, command);
     if (!execution.ok) return failed(state, execution.error);
@@ -46,10 +66,13 @@ export function processCommand(state: GameState, command: AllGameCommand): Proce
 
 function finalize(before: GameState, baseEvents: readonly AllDomainEvent[], preReducedState?: GameState): ProcessCommandResult {
   const commandState = preReducedState ?? baseEvents.reduce(applyAllEvent, before);
-  const tacticalEvents = baseEvents.filter((event): event is TacticalDomainEvent => !isStrategyDomainEvent(event) && !isOperationsDomainEvent(event));
+  const tacticalEvents = baseEvents.filter((event): event is TacticalDomainEvent =>
+    !isCampaignDomainEvent(event) && !isStrategyDomainEvent(event) && !isOperationsDomainEvent(event),
+  );
   const scenarioEvents = evaluateScenarioTriggers(before, commandState, tacticalEvents);
   let state = scenarioEvents.reduce(applyAllEvent, commandState);
   const events: AllDomainEvent[] = [...baseEvents, ...scenarioEvents];
+
   if (state.mode === "battle" && state.scenario.phase === "completed" && state.scenario.outcome && state.scenario.report) {
     const returned: AllDomainEvent = {
       type: "strategy.returned",
@@ -61,11 +84,19 @@ function finalize(before: GameState, baseEvents: readonly AllDomainEvent[], preR
     state = applyAllEvent(state, returned);
     events.push(returned);
   }
+
+  const campaignEvents = evaluateCampaignProgress(before, state);
+  state = campaignEvents.reduce(applyAllEvent, state);
+  events.push(...campaignEvents);
   return { ok: true, state, events };
 }
 
 function failed(state: GameState, error: DomainError): ProcessCommandResult {
   return { ok: false, state, events: [], error };
+}
+
+function isCampaignCommand(command: AllGameCommand): command is CampaignGameCommand {
+  return command.type.startsWith("campaign.");
 }
 
 function isAbilityCommand(command: AllGameCommand): command is AbilityGameCommand {
