@@ -4,7 +4,6 @@ import {
   EMIYA_FACTION_ID,
   RYOUDOU_FACTION_ID,
   STRATEGY_FACTION_ID,
-  getStrategicFaction,
 } from "./strategy";
 import type {
   CampaignObjectiveProgress,
@@ -12,6 +11,7 @@ import type {
   CampaignRouteId,
   CampaignState,
   GameState,
+  RegionId,
 } from "./state";
 
 export interface CampaignObjectiveDefinition {
@@ -24,12 +24,16 @@ export interface CampaignObjectiveDefinition {
 export interface CampaignRouteDefinition {
   readonly id: CampaignRouteId;
   readonly playerFactionId: FactionId;
+  readonly homeRegionId: RegionId;
   readonly title: string;
   readonly description: string;
   readonly objectives: readonly CampaignObjectiveDefinition[];
 }
 
+const campaignAtEnding = (state: GameState): boolean => state.strategy.day > state.campaign.maxNights;
+
 const survives = (state: GameState): boolean => {
+  if (!campaignAtEnding(state)) return false;
   const player = getSelectedPlayerFaction(state);
   if (!player) return false;
   const master = state.battle.units[player.masterUnitId];
@@ -43,6 +47,7 @@ export const CAMPAIGN_ROUTE_DEFINITIONS: Readonly<Record<CampaignRouteId, Campai
   "tohsaka-route": {
     id: "tohsaka-route",
     playerFactionId: STRATEGY_FACTION_ID,
+    homeRegionId: "tohsaka-residence",
     title: "远坂路线 · 真名追猎",
     description: "依靠情报、投影与有限令咒，在三夜内识破并压制主要威胁。",
     objectives: [
@@ -56,7 +61,7 @@ export const CAMPAIGN_ROUTE_DEFINITIONS: Readonly<Record<CampaignRouteId, Campai
         id: "tohsaka-seal",
         label: "保留令咒",
         description: "战役结束时至少保留一划令咒。",
-        evaluate: state => (state.battle.contracts[STRATEGY_FACTION_ID]?.commandSeals ?? 0) >= 1,
+        evaluate: state => campaignAtEnding(state) && (state.battle.contracts[STRATEGY_FACTION_ID]?.commandSeals ?? 0) >= 1,
       },
       {
         id: "tohsaka-survive",
@@ -69,6 +74,7 @@ export const CAMPAIGN_ROUTE_DEFINITIONS: Readonly<Record<CampaignRouteId, Campai
   "emiya-route": {
     id: "emiya-route",
     playerFactionId: EMIYA_FACTION_ID,
+    homeRegionId: "emiya-residence",
     title: "卫宫路线 · 守护誓约",
     description: "保护Master、争取可信盟友，并让Saber撑过三夜战争。",
     objectives: [
@@ -99,6 +105,7 @@ export const CAMPAIGN_ROUTE_DEFINITIONS: Readonly<Record<CampaignRouteId, Campai
   "ryudou-route": {
     id: "ryudou-route",
     playerFactionId: RYOUDOU_FACTION_ID,
+    homeRegionId: "ryudou-temple",
     title: "柳洞寺路线 · 工房支配",
     description: "强化柳洞寺工房、控制灵脉，并维持Caster阵营的存在。",
     objectives: [
@@ -157,13 +164,19 @@ export function getRouteForFaction(factionId: FactionId): CampaignRouteDefinitio
   return Object.values(CAMPAIGN_ROUTE_DEFINITIONS).find(route => route.playerFactionId === factionId);
 }
 
+export function getCampaignHomeRegion(state: GameState): RegionId {
+  return state.campaign.routeId
+    ? getCampaignRoute(state.campaign.routeId).homeRegionId
+    : "tohsaka-residence";
+}
+
 export function getSelectedPlayerFaction(state: GameState) {
   const selected = state.campaign.selectedPlayerFactionId ?? STRATEGY_FACTION_ID;
   return state.strategy.factions[selected];
 }
 
 export function evaluateCampaignProgress(
-  before: GameState,
+  _before: GameState,
   after: GameState,
 ): readonly AllDomainEvent[] {
   if (after.campaign.status !== "active" || !after.campaign.routeId) return [];
