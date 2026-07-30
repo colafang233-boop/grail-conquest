@@ -130,7 +130,9 @@ function enterEncounter(
   const firstFactionId = advantagedFaction ?? (participants.includes(STRATEGY_FACTION_ID) ? STRATEGY_FACTION_ID : participants[0]);
   const firstFaction = firstFactionId ? getStrategicFaction(state, firstFactionId) : undefined;
   const firstServantId = firstFaction?.servantUnitIds.find(id => units[id]?.deployed && !units[id]?.defeated);
-  const activeUnitId = firstServantId ?? state.battle.activeUnitId;
+  const deployedInitiative = state.battle.initiative.filter(unitId => units[unitId]?.deployed && !units[unitId]?.defeated);
+  const activeUnitId = firstServantId ?? deployedInitiative[0] ?? state.battle.activeUnitId;
+  const initiative = [activeUnitId, ...deployedInitiative.filter(unitId => unitId !== activeUnitId)];
 
   return {
     ...state,
@@ -149,6 +151,7 @@ function enterEncounter(
       ...state.battle,
       round: 1,
       activeUnitId,
+      initiative,
       participatingFactionIds: participants,
       units,
     },
