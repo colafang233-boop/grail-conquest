@@ -1,6 +1,7 @@
 import { StrategyCanvas } from "./StrategyCanvas";
 import { StrategyPanel } from "./StrategyPanel";
 import "./strategy.css";
+import "./factions.css";
 
 export function StrategyScreen() {
   return (
