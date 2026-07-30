@@ -15,86 +15,42 @@ import { evaluateScenarioTriggers } from "./scenario";
 import { executeStrategyCommand } from "./strategy-engine";
 
 export type ProcessCommandResult =
-  | {
-      readonly ok: true;
-      readonly state: GameState;
-      readonly events: readonly AllDomainEvent[];
-    }
-  | {
-      readonly ok: false;
-      readonly state: GameState;
-      readonly events: readonly [];
-      readonly error: DomainError;
-    };
+  | { readonly ok: true; readonly state: GameState; readonly events: readonly AllDomainEvent[] }
+  | { readonly ok: false; readonly state: GameState; readonly events: readonly []; readonly error: DomainError };
 
-export function processCommand(
-  state: GameState,
-  command: AllGameCommand,
-): ProcessCommandResult {
+export function processCommand(state: GameState, command: AllGameCommand): ProcessCommandResult {
   if (isOperationsCommand(command)) {
     const execution = executeOperationsCommand(state, command);
     if (!execution.ok) return failed(state, execution.error);
     return finalize(state, execution.events);
   }
-
   if (isStrategyCommand(command)) {
     const execution = executeStrategyCommand(state, command);
     if (!execution.ok) return failed(state, execution.error);
     return finalize(state, execution.events);
   }
-
   if (state.mode === "strategy" && command.type !== "scenario.begin_encounter") {
-    return failed(state, {
-      code: "strategy_not_active",
-      message: "Enter a discovered encounter before issuing tactical commands",
-    });
+    return failed(state, { code: "strategy_not_active", message: "Enter a discovered encounter before issuing tactical commands" });
   }
-
   if (state.mode === "strategy" && command.type === "scenario.begin_encounter") {
     return finalize(state, [
-      {
-        type: "strategy.encounter_entered",
-        sequence: state.sequence + 1,
-        encounterId: "school-night",
-      },
-      {
-        type: "scenario.encounter_started",
-        sequence: state.sequence + 2,
-        scenarioId: "school-night",
-      },
+      { type: "strategy.encounter_entered", sequence: state.sequence + 1, encounterId: "school-night" },
+      { type: "scenario.encounter_started", sequence: state.sequence + 2, scenarioId: "school-night" },
     ]);
   }
-
-  const execution = isAbilityCommand(command)
-    ? executeAbilityCommand(state, command)
-    : executeCommand(state, command);
-
+  const execution = isAbilityCommand(command) ? executeAbilityCommand(state, command) : executeCommand(state, command);
   if (!execution.ok) return failed(state, execution.error);
-
   const normalized = normalizeCombatEvents(state, execution.events);
   return finalize(state, normalized.events, normalized.state);
 }
 
-function finalize(
-  before: GameState,
-  baseEvents: readonly AllDomainEvent[],
-  preReducedState?: GameState,
-): ProcessCommandResult {
+function finalize(before: GameState, baseEvents: readonly AllDomainEvent[], preReducedState?: GameState): ProcessCommandResult {
   const commandState = preReducedState ?? baseEvents.reduce(applyAllEvent, before);
-  const tacticalEvents = baseEvents.filter(
-    (event): event is TacticalDomainEvent =>
-      !isStrategyDomainEvent(event) && !isOperationsDomainEvent(event),
-  );
+  const tacticalEvents = baseEvents.filter((event): event is TacticalDomainEvent => !isStrategyDomainEvent(event) && !isOperationsDomainEvent(event));
   const scenarioEvents = evaluateScenarioTriggers(before, commandState, tacticalEvents);
   let state = scenarioEvents.reduce(applyAllEvent, commandState);
   const events: AllDomainEvent[] = [...baseEvents, ...scenarioEvents];
-
-  if (
-    state.mode === "battle" &&
-    state.scenario.phase === "completed" &&
-    state.scenario.outcome &&
-    state.scenario.report
-  ) {
+  if (state.mode === "battle" && state.scenario.phase === "completed" && state.scenario.outcome && state.scenario.report) {
     const returned: AllDomainEvent = {
       type: "strategy.returned",
       sequence: state.sequence + 1,
@@ -105,7 +61,6 @@ function finalize(
     state = applyAllEvent(state, returned);
     events.push(returned);
   }
-
   return { ok: true, state, events };
 }
 
@@ -122,7 +77,7 @@ function isStrategyCommand(command: AllGameCommand): command is StrategyGameComm
 }
 
 function isOperationsCommand(command: AllGameCommand): command is OperationsGameCommand {
-  return command.type.startsWith("operations.");
+  return command.type.startsWith("operations.") || command.type.startsWith("diplomacy.");
 }
 
 export type LegacyGameCommand = GameCommand;
