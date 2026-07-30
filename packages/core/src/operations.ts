@@ -1,3 +1,4 @@
+import { getSelectedPlayerFaction } from "./campaign";
 import type { FactionId } from "./ids";
 import {
   ACTIVE_STRATEGY_FACTION_IDS,
@@ -34,6 +35,10 @@ export const ORDER_LABELS: Readonly<Record<StrategicOrderType, string>> = {
 const HUNTER_PATROL: readonly RegionId[] = ["school", "harbor", "fuyuki-bridge", "shopping-street"];
 const HONORABLE_PATROL: readonly RegionId[] = ["school", "fuyuki-bridge", "church", "shopping-street"];
 
+export function getPlayerFactionId(state: GameState): FactionId {
+  return state.campaign.selectedPlayerFactionId ?? STRATEGY_FACTION_ID;
+}
+
 export function createStrategicOrder(
   factionId: FactionId,
   type: StrategicOrderType,
@@ -48,6 +53,7 @@ export function createAiOrder(state: GameState, factionId: FactionId, playerOrde
   const faction = getStrategicFaction(state, factionId);
   if (!faction) throw new Error(`Missing strategic faction ${factionId}`);
   const origin = faction.regionId;
+  const playerFactionId = getPlayerFactionId(state);
 
   if (faction.aiProfile === "fortifier") {
     const threatened = playerOrder.destinationRegionId === origin;
@@ -58,10 +64,11 @@ export function createAiOrder(state: GameState, factionId: FactionId, playerOrde
   let target: RegionId;
   if (faction.aiProfile === "honorable") {
     target = HONORABLE_PATROL[(state.strategy.day - 1) % HONORABLE_PATROL.length] ?? "school";
-    if (shareDetection(state, factionId, STRATEGY_FACTION_ID)) target = playerOrder.destinationRegionId;
+    if (shareDetection(state, factionId, playerFactionId)) target = playerOrder.destinationRegionId;
   } else {
     target = HUNTER_PATROL[(state.strategy.day - 1) % HUNTER_PATROL.length] ?? "school";
-    if (state.strategy.exposure >= 55) target = playerOrder.destinationRegionId;
+    const player = getSelectedPlayerFaction(state);
+    if ((player?.exposure ?? state.strategy.exposure) >= 55) target = playerOrder.destinationRegionId;
   }
 
   const destination = findNextRegionToward(state.strategy.regions, origin, target);
@@ -73,9 +80,10 @@ export function createAllFactionOrders(
   state: GameState,
   playerOrder: StrategicOrder,
 ): Readonly<Record<string, StrategicOrder>> {
-  const orders: Record<string, StrategicOrder> = { [STRATEGY_FACTION_ID]: playerOrder };
+  const playerFactionId = getPlayerFactionId(state);
+  const orders: Record<string, StrategicOrder> = { [playerFactionId]: playerOrder };
   for (const factionId of ACTIVE_STRATEGY_FACTION_IDS) {
-    if (factionId === STRATEGY_FACTION_ID) continue;
+    if (factionId === playerFactionId) continue;
     const faction = getStrategicFaction(state, factionId);
     if (!faction || faction.status !== "active") continue;
     orders[factionId] = createAiOrder(state, factionId, playerOrder);
@@ -130,9 +138,7 @@ export function createContactGroups(orders: Readonly<Record<string, StrategicOrd
     const factionList = [...factionIds].sort((a, b) => String(a).localeCompare(String(b)));
     const firstOrder = orders[factionList[0] ?? ""];
     if (!firstOrder) continue;
-    const regionId = key.startsWith("region:")
-      ? firstOrder.destinationRegionId
-      : firstOrder.destinationRegionId;
+    const regionId = key.startsWith("region:") ? firstOrder.destinationRegionId : firstOrder.destinationRegionId;
     result.push({ regionId, factionIds: factionList });
   }
   return result.sort((a, b) => a.regionId.localeCompare(b.regionId));
@@ -154,6 +160,7 @@ export function resolveFactionDetection(
   const firstFaction = getStrategicFaction(state, firstOrder.factionId);
   const secondFaction = getStrategicFaction(state, secondOrder.factionId);
   if (!firstFaction || !secondFaction) throw new Error("Missing faction during detection");
+  const playerFactionId = getPlayerFactionId(state);
 
   const firstIntel = Math.min(20, firstFaction.resources.intelligence + firstFaction.knownIntel.length * 3);
   const secondIntel = Math.min(20, secondFaction.resources.intelligence + secondFaction.knownIntel.length * 3);
@@ -164,8 +171,8 @@ export function resolveFactionDetection(
   const firstDetectedSecond = firstRoll <= firstScore;
   const secondDetectedFirst = secondRoll <= secondScore;
 
-  const playerIsFirst = firstOrder.factionId === STRATEGY_FACTION_ID;
-  const playerIsSecond = secondOrder.factionId === STRATEGY_FACTION_ID;
+  const playerIsFirst = firstOrder.factionId === playerFactionId;
+  const playerIsSecond = secondOrder.factionId === playerFactionId;
   const playerScore = playerIsFirst ? firstScore : playerIsSecond ? secondScore : firstScore;
   const enemyScore = playerIsFirst ? secondScore : playerIsSecond ? firstScore : secondScore;
   const playerRoll = playerIsFirst ? firstRoll : playerIsSecond ? secondRoll : firstRoll;
@@ -200,6 +207,7 @@ export function createMultiPartyEncounter(
   orders: Readonly<Record<string, StrategicOrder>>,
   detections: readonly OperationDetection[],
 ): StrategyEncounterQueueItem | undefined {
+  const playerFactionId = getPlayerFactionId(state);
   const hostilePairs: string[] = [];
   for (let left = 0; left < group.factionIds.length; left += 1) {
     for (let right = left + 1; right < group.factionIds.length; right += 1) {
@@ -212,18 +220,18 @@ export function createMultiPartyEncounter(
   }
   if (hostilePairs.length === 0) return undefined;
 
-  const playerInvolved = group.factionIds.includes(STRATEGY_FACTION_ID);
-  const playerOrder = orders[STRATEGY_FACTION_ID];
+  const playerInvolved = group.factionIds.includes(playerFactionId);
+  const playerOrder = orders[playerFactionId];
   let playerDetectedHostile = false;
   let hostileDetectedPlayer = false;
   for (const detection of detections) {
     const first = detection.firstFactionId;
     const second = detection.secondFactionId;
     if (!first || !second) continue;
-    if (first === STRATEGY_FACTION_ID && areFactionsHostile(state, first, second)) {
+    if (first === playerFactionId && areFactionsHostile(state, first, second)) {
       playerDetectedHostile ||= Boolean(detection.firstDetectedSecond);
       hostileDetectedPlayer ||= Boolean(detection.secondDetectedFirst);
-    } else if (second === STRATEGY_FACTION_ID && areFactionsHostile(state, first, second)) {
+    } else if (second === playerFactionId && areFactionsHostile(state, first, second)) {
       playerDetectedHostile ||= Boolean(detection.secondDetectedFirst);
       hostileDetectedPlayer ||= Boolean(detection.firstDetectedSecond);
     }
@@ -231,7 +239,7 @@ export function createMultiPartyEncounter(
 
   if (playerInvolved && !playerDetectedHostile && !hostileDetectedPlayer) {
     const alliedDetection = group.factionIds.some(factionId =>
-      factionId !== STRATEGY_FACTION_ID && shareDetection(state, factionId, STRATEGY_FACTION_ID) &&
+      factionId !== playerFactionId && shareDetection(state, factionId, playerFactionId) &&
       detections.some(item =>
         (item.firstFactionId === factionId && item.firstDetectedSecond) ||
         (item.secondFactionId === factionId && item.secondDetectedFirst),
@@ -246,13 +254,13 @@ export function createMultiPartyEncounter(
   let advantagedFactionId: FactionId | undefined;
   if (playerInvolved && playerDetectedHostile && !hostileDetectedPlayer) {
     advantage = "player";
-    advantagedFactionId = STRATEGY_FACTION_ID;
+    advantagedFactionId = playerFactionId;
   } else if (playerInvolved && hostileDetectedPlayer && !playerDetectedHostile) {
     advantage = "enemy";
-    advantagedFactionId = group.factionIds.find(id => id !== STRATEGY_FACTION_ID && areFactionsHostile(state, id, STRATEGY_FACTION_ID));
+    advantagedFactionId = group.factionIds.find(id => id !== playerFactionId && areFactionsHostile(state, id, playerFactionId));
   } else if (playerOrder?.type === "ambush") {
     advantage = "player";
-    advantagedFactionId = STRATEGY_FACTION_ID;
+    advantagedFactionId = playerFactionId;
   }
 
   return {
@@ -285,11 +293,19 @@ export function createEncounterFromDetection(
     mandatory: detection.outcome === "mutual" || detection.outcome === "enemy_only",
     participantFactionIds: [playerOrder.factionId, enemyOrder.factionId],
     hostilePairs: [[String(playerOrder.factionId), String(enemyOrder.factionId)].sort().join("::")],
-    ...(advantage === "player" ? { advantagedFactionId: playerOrder.factionId } : advantage === "enemy" ? { advantagedFactionId: enemyOrder.factionId } : {}),
+    ...(advantage === "player"
+      ? { advantagedFactionId: playerOrder.factionId }
+      : advantage === "enemy"
+        ? { advantagedFactionId: enemyOrder.factionId }
+        : {}),
   };
 }
 
-export function determineAdvantage(outcome: DetectionOutcome, playerOrderType: StrategicOrderType, enemyOrderType: StrategicOrderType): EncounterAdvantage {
+export function determineAdvantage(
+  outcome: DetectionOutcome,
+  playerOrderType: StrategicOrderType,
+  enemyOrderType: StrategicOrderType,
+): EncounterAdvantage {
   if (outcome === "player_only") return "player";
   if (outcome === "enemy_only") return "enemy";
   if (playerOrderType === "ambush" && enemyOrderType !== "ambush") return "player";
@@ -341,8 +357,8 @@ function clampScore(value: number): number {
   return Math.max(5, Math.min(95, value));
 }
 
-export function isPlayerFaction(factionId: FactionId): boolean {
-  return factionId === STRATEGY_FACTION_ID;
+export function isPlayerFaction(state: GameState, factionId: FactionId): boolean {
+  return factionId === getPlayerFactionId(state);
 }
 
 export { EMIYA_FACTION_ID, ENEMY_STRATEGY_FACTION_ID, RYOUDOU_FACTION_ID };
