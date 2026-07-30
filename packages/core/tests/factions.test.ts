@@ -29,7 +29,7 @@ function resolvedSchoolContact(initial = createSchoolBattleState()): GameState {
 describe("multi-faction Holy Grail War", () => {
   it("registers Tohsaka, Lancer, Emiya, and Ryudou factions", () => {
     const state = createSchoolBattleState();
-    expect(state.schemaVersion).toBe(4);
+    expect(state.schemaVersion).toBe(5);
     expect(Object.keys(state.strategy.factions).sort()).toEqual([
       "emiya",
       "lancer-faction",
@@ -64,7 +64,7 @@ describe("multi-faction Holy Grail War", () => {
       "lancer-faction",
       "tohsaka",
     ]);
-    expect([...(encounter?.hostilePairs ?? [])].sort()).toEqual([
+    expect([...encounter?.hostilePairs ?? []].sort()).toEqual([
       "emiya::lancer-faction",
       "lancer-faction::tohsaka",
     ]);
