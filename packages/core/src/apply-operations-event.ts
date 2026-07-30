@@ -1,15 +1,17 @@
+import { getSelectedPlayerFaction } from "./campaign";
 import type { FactionId } from "./ids";
+import { getPlayerFactionId } from "./operations";
 import type { OperationsDomainEvent } from "./operations-events";
 import { createInitialScenarioState } from "./scenario";
 import {
   ENEMY_STRATEGY_FACTION_ID,
-  STRATEGY_FACTION_ID,
   getEncounterDefinition,
   getStrategicFaction,
 } from "./strategy";
 import type { BattleUnitState, GameState, StrategicFactionState } from "./state";
 
 export function applyOperationsEvent(state: GameState, event: OperationsDomainEvent): GameState {
+  const playerFactionId = getPlayerFactionId(state);
   switch (event.type) {
     case "operations.order_submitted":
       return updateFaction({
@@ -19,7 +21,7 @@ export function applyOperationsEvent(state: GameState, event: OperationsDomainEv
       }, event.order.factionId, faction => ({ ...faction, order: event.order }));
     case "operations.order_cancelled": {
       const { playerOrder: _player, ...strategy } = state.strategy;
-      return updateFaction({ ...state, sequence: event.sequence, strategy: { ...strategy, objective: "本夜尚未选择行动。" } }, STRATEGY_FACTION_ID, faction => removeOrder(faction));
+      return updateFaction({ ...state, sequence: event.sequence, strategy: { ...strategy, objective: "本夜尚未选择行动。" } }, playerFactionId, faction => removeOrder(faction));
     }
     case "operations.orders_locked": {
       let next: GameState = {
@@ -39,28 +41,26 @@ export function applyOperationsEvent(state: GameState, event: OperationsDomainEv
     case "operations.faction_moved": {
       let next = updateFaction(state, event.factionId, faction => ({ ...faction, regionId: event.to }));
       next = { ...next, sequence: event.sequence };
-      if (event.factionId === STRATEGY_FACTION_ID) next = { ...next, strategy: { ...next.strategy, currentRegionId: event.to } };
+      if (event.factionId === playerFactionId) next = { ...next, strategy: { ...next.strategy, currentRegionId: event.to } };
       if (event.factionId === ENEMY_STRATEGY_FACTION_ID) next = { ...next, strategy: { ...next.strategy, enemyRegionId: event.to } };
       return next;
     }
     case "operations.faction_exposure_changed": {
       let next = updateFaction(state, event.factionId, faction => ({ ...faction, exposure: event.exposure }));
       next = { ...next, sequence: event.sequence };
-      if (event.factionId === STRATEGY_FACTION_ID) next = { ...next, strategy: { ...next.strategy, exposure: event.exposure } };
+      if (event.factionId === playerFactionId) next = { ...next, strategy: { ...next.strategy, exposure: event.exposure } };
       if (event.factionId === ENEMY_STRATEGY_FACTION_ID) next = { ...next, strategy: { ...next.strategy, enemyExposure: event.exposure } };
       return next;
     }
     case "operations.detection_resolved":
-      return applyDetection(state, event);
+      return applyDetection(state, event, playerFactionId);
     case "operations.encounter_queued":
-      if (!event.encounter.participantFactionIds.includes(STRATEGY_FACTION_ID)) {
-        return { ...state, sequence: event.sequence };
-      }
+      if (!event.encounter.participantFactionIds.includes(playerFactionId)) return { ...state, sequence: event.sequence };
       return { ...state, sequence: event.sequence, strategy: { ...state.strategy, encounterQueue: [...state.strategy.encounterQueue, event.encounter] } };
     case "operations.encounter_removed":
       return { ...state, sequence: event.sequence, strategy: { ...state.strategy, encounterQueue: state.strategy.encounterQueue.filter(item => item.id !== event.queueId) } };
     case "operations.encounter_entered":
-      return enterEncounter(state, event);
+      return enterEncounter(state, event, playerFactionId);
     case "operations.timeline_added":
       return { ...state, sequence: event.sequence, strategy: { ...state.strategy, resolutionTimeline: [...state.strategy.resolutionTimeline, event.entry] } };
     case "operations.workshop_prepared":
@@ -92,6 +92,7 @@ export function applyOperationsEvent(state: GameState, event: OperationsDomainEv
 function applyDetection(
   state: GameState,
   event: Extract<OperationsDomainEvent, { readonly type: "operations.detection_resolved" }>,
+  playerFactionId: FactionId,
 ): GameState {
   let next: GameState = {
     ...state,
@@ -105,11 +106,11 @@ function applyDetection(
   const detection = event.detection;
   const first = detection.firstFactionId;
   const second = detection.secondFactionId;
-  if (first === STRATEGY_FACTION_ID && detection.firstDetectedSecond && second) {
+  if (first === playerFactionId && detection.firstDetectedSecond && second) {
     next = updateFaction(next, second, faction => ({ ...faction, knownRegionId: detection.regionId }));
     next = { ...next, strategy: { ...next.strategy, knownEnemyRegionId: detection.regionId } };
   }
-  if (second === STRATEGY_FACTION_ID && detection.secondDetectedFirst && first) {
+  if (second === playerFactionId && detection.secondDetectedFirst && first) {
     next = updateFaction(next, first, faction => ({ ...faction, knownRegionId: detection.regionId }));
     next = { ...next, strategy: { ...next.strategy, knownEnemyRegionId: detection.regionId } };
   }
@@ -119,6 +120,7 @@ function applyDetection(
 function enterEncounter(
   state: GameState,
   event: Extract<OperationsDomainEvent, { readonly type: "operations.encounter_entered" }>,
+  playerFactionId: FactionId,
 ): GameState {
   const definition = getEncounterDefinition(event.encounterId);
   const participants = event.participantFactionIds;
@@ -130,11 +132,11 @@ function enterEncounter(
     const deployed = participantSet.has(String(unit.factionId)) && !unit.defeated;
     const index = deployedByFaction.get(String(unit.factionId)) ?? 0;
     if (deployed) deployedByFaction.set(String(unit.factionId), index + 1);
-    units[unit.id] = prepareUnit(unit, deployed, encounterPosition(unit.factionId, index, definition.playerStart, definition.enemyStart));
+    units[unit.id] = prepareUnit(unit, deployed, encounterPosition(unit.factionId, playerFactionId, index, definition.playerStart, definition.enemyStart));
   }
 
   const advantagedFaction = event.advantagedFactionId;
-  const firstFactionId = advantagedFaction ?? (participants.includes(STRATEGY_FACTION_ID) ? STRATEGY_FACTION_ID : participants[0]);
+  const firstFactionId = advantagedFaction ?? (participants.includes(playerFactionId) ? playerFactionId : participants[0]);
   const firstFaction = firstFactionId ? getStrategicFaction(state, firstFactionId) : undefined;
   const firstServantId = firstFaction?.servantUnitIds.find(id => units[id]?.deployed && !units[id]?.defeated);
   const deployedInitiative = state.battle.initiative.filter(unitId => units[unitId]?.deployed && !units[unitId]?.defeated);
@@ -172,11 +174,12 @@ function enterEncounter(
 
 function encounterPosition(
   factionId: FactionId,
+  playerFactionId: FactionId,
   index: number,
   playerStart: BattleUnitState["position"],
   enemyStart: BattleUnitState["position"],
 ): BattleUnitState["position"] {
-  if (factionId === STRATEGY_FACTION_ID) return { q: Math.min(7, playerStart.q + index), r: Math.min(5, playerStart.r + index) };
+  if (factionId === playerFactionId) return { q: Math.min(7, playerStart.q + index), r: Math.min(5, playerStart.r + index) };
   if (factionId === ENEMY_STRATEGY_FACTION_ID) return { q: Math.max(0, enemyStart.q - index), r: Math.min(5, enemyStart.r + index) };
   const factionOffset = String(factionId) === "emiya" ? 2 : 5;
   return String(factionId) === "emiya"
