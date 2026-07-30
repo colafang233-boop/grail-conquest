@@ -31,7 +31,7 @@ interface LegacyStoredGame {
     readonly scenario: GameState["scenario"];
     readonly battle: Record<string, unknown>;
   };
-  readonly eventLog: readonly AllDomainEvent[];
+  readonly eventLog: readonly unknown[];
 }
 
 export function hasSavedGame(): boolean {
@@ -67,7 +67,7 @@ export function loadSavedGame(): string | undefined {
     const parsed: unknown = JSON.parse(raw);
     if (!isLegacyStoredGame(parsed)) throw new Error("旧存档格式无效，无法迁移");
     const migrated = migrateLegacyState(parsed.state);
-    gameEngine.restore(migrated, parsed.eventLog, migrated);
+    gameEngine.restore(migrated, [], migrated);
     return parsed.savedAt;
   }
   return undefined;
