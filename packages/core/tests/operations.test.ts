@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ARCHER_UNIT_ID,
-  LANCER_UNIT_ID,
+  EMIYA_FACTION_ID,
+  ENEMY_STRATEGY_FACTION_ID,
   RIN_UNIT_ID,
+  SABER_UNIT_ID,
+  STRATEGY_FACTION_ID,
   TOHSAKA_FACTION_ID,
   classifyDetection,
   createSchoolBattleState,
@@ -18,11 +21,7 @@ function dispatch(state: GameState, command: Parameters<typeof processCommand>[1
 }
 
 function lockMoveToSchool(initial = createSchoolBattleState()): GameState {
-  const submitted = dispatch(initial, {
-    type: "operations.submit_order",
-    orderType: "move",
-    destinationId: "school",
-  });
+  const submitted = dispatch(initial, { type: "operations.submit_order", orderType: "move", destinationId: "school" });
   return dispatch(submitted, { type: "operations.lock_orders" });
 }
 
@@ -36,64 +35,50 @@ function resolveMoveToSchool(initial = createSchoolBattleState()) {
 function enterFirstEncounter(state: GameState): GameState {
   const encounter = state.strategy.encounterQueue[0];
   if (!encounter) throw new Error("Expected queued encounter");
-  return dispatch(state, {
-    type: "operations.enter_encounter",
-    queueId: encounter.id,
-  });
+  return dispatch(state, { type: "operations.enter_encounter", queueId: encounter.id });
 }
 
 describe("nightly operation cycle", () => {
-  it("starts in planning without revealing an enemy order", () => {
+  it("starts in planning with four hidden faction states", () => {
     const state = createSchoolBattleState();
-    expect(state.schemaVersion).toBe(3);
+    expect(state.schemaVersion).toBe(4);
     expect(state.strategy.phase).toBe("planning");
     expect(state.strategy.playerOrder).toBeUndefined();
     expect(state.strategy.enemyOrder).toBeUndefined();
-    expect(state.strategy.enemyRegionId).toBe("fuyuki-bridge");
-    expect(state.strategy.knownEnemyRegionId).toBeUndefined();
+    expect(Object.keys(state.strategy.factions)).toHaveLength(4);
+    expect(state.strategy.factions[ENEMY_STRATEGY_FACTION_ID]?.regionId).toBe("fuyuki-bridge");
   });
 
-  it("locks the player order and generates a hidden deterministic enemy order", () => {
+  it("locks the player order and generates deterministic orders for every AI faction", () => {
     const locked = lockMoveToSchool();
     expect(locked.strategy.phase).toBe("orders_locked");
-    expect(locked.strategy.playerOrder).toMatchObject({
-      type: "move",
-      originRegionId: "tohsaka-residence",
-      destinationRegionId: "school",
-    });
-    expect(locked.strategy.enemyOrder).toMatchObject({
-      type: "move",
-      originRegionId: "fuyuki-bridge",
-      destinationRegionId: "school",
-    });
+    expect(locked.strategy.playerOrder).toMatchObject({ type: "move", originRegionId: "tohsaka-residence", destinationRegionId: "school" });
+    expect(locked.strategy.factions[ENEMY_STRATEGY_FACTION_ID]?.order?.destinationRegionId).toBe("school");
+    expect(locked.strategy.factions[EMIYA_FACTION_ID]?.order?.destinationRegionId).toBe("school");
+    expect(Object.values(locked.strategy.factions).filter(faction => faction.order)).toHaveLength(4);
   });
 
-  it("resolves both movements simultaneously and queues an enemy ambush at school", () => {
+  it("resolves simultaneous movement and queues a multi-party school encounter", () => {
     const result = resolveMoveToSchool();
     expect(result.state.strategy.currentRegionId).toBe("school");
-    expect(result.state.strategy.enemyRegionId).toBe("school");
     expect(result.state.strategy.phase).toBe("encounter_resolution");
-    expect(result.state.strategy.lastDetection).toMatchObject({
-      regionId: "school",
-      outcome: "enemy_only",
-      playerRoll: 73,
-      enemyRoll: 28,
-    });
-    expect(result.state.strategy.encounterQueue).toHaveLength(1);
-    expect(result.state.strategy.encounterQueue[0]).toMatchObject({
-      encounterId: "school-night",
-      advantage: "enemy",
-      mandatory: true,
-    });
+    expect(result.state.strategy.lastDetections.length).toBeGreaterThanOrEqual(3);
+    const encounter = result.state.strategy.encounterQueue.find(item => item.regionId === "school");
+    expect(encounter).toBeDefined();
+    expect(encounter?.participantFactionIds.map(String).sort()).toEqual(["emiya", "lancer-faction", "tohsaka"]);
+    expect(encounter?.hostilePairs).toContain("lancer-faction::tohsaka");
   });
 
-  it("enters a generated encounter with the detected advantage", () => {
+  it("enters a generated encounter with only deployed participants in initiative", () => {
     const entered = enterFirstEncounter(resolveMoveToSchool().state);
     expect(entered.mode).toBe("battle");
     expect(entered.strategy.activeEncounterId).toBe("school-night");
-    expect(entered.battle.activeUnitId).toBe(LANCER_UNIT_ID);
     expect(entered.scenario.phase).toBe("encounter");
     expect(entered.battle.units[ARCHER_UNIT_ID]?.position).toEqual({ q: 1, r: 2 });
+    expect(entered.battle.units[SABER_UNIT_ID]?.deployed).toBe(true);
+    expect(entered.battle.initiative).toContain(SABER_UNIT_ID);
+    expect(entered.battle.initiative).toContain(entered.battle.activeUnitId);
+    expect(entered.battle.initiative.every(id => entered.battle.units[id]?.deployed)).toBe(true);
   });
 
   it("supports mutual, one-sided, and missed detection classifications", () => {
@@ -107,25 +92,24 @@ describe("nightly operation cycle", () => {
 
   it("converts workshop preparation into a barrier at encounter start", () => {
     const initial = createSchoolBattleState();
+    const playerFaction = initial.strategy.factions[STRATEGY_FACTION_ID]!;
     const atControlledSchool: GameState = {
       ...initial,
       strategy: {
         ...initial.strategy,
         currentRegionId: "school",
+        factions: {
+          ...initial.strategy.factions,
+          [STRATEGY_FACTION_ID]: { ...playerFaction, regionId: "school" },
+        },
         regions: {
           ...initial.strategy.regions,
-          school: {
-            ...initial.strategy.regions.school,
-            controlledBy: TOHSAKA_FACTION_ID,
-          },
+          school: { ...initial.strategy.regions.school, controlledBy: TOHSAKA_FACTION_ID },
         },
       },
     };
 
-    let state = dispatch(atControlledSchool, {
-      type: "operations.submit_order",
-      orderType: "prepare_workshop",
-    });
+    let state = dispatch(atControlledSchool, { type: "operations.submit_order", orderType: "prepare_workshop" });
     state = dispatch(state, { type: "operations.lock_orders" });
     state = dispatch(state, { type: "operations.resolve_night" });
     state = enterFirstEncounter(state);
@@ -143,25 +127,14 @@ describe("nightly operation cycle", () => {
         phase: "noble_phantasm_warning",
         clues: [
           ...entered.scenario.clues,
-          {
-            id: "causality_reversal",
-            category: "noble_phantasm",
-            label: "因果逆转",
-            confidence: 90,
-            source: "test",
-            discoveredAtSequence: entered.sequence + 1,
-          },
+          { id: "causality_reversal", category: "noble_phantasm", label: "因果逆转", confidence: 90, source: "test", discoveredAtSequence: entered.sequence + 1 },
         ],
       },
       battle: {
         ...entered.battle,
         units: {
           ...entered.battle.units,
-          [ARCHER_UNIT_ID]: {
-            ...entered.battle.units[ARCHER_UNIT_ID]!,
-            health: 73,
-            mana: 21,
-          },
+          [ARCHER_UNIT_ID]: { ...entered.battle.units[ARCHER_UNIT_ID]!, health: 73, mana: 21 },
         },
       },
     };
@@ -175,11 +148,8 @@ describe("nightly operation cycle", () => {
     expect(retreated.battle.units[ARCHER_UNIT_ID]?.mana).toBe(21);
   });
 
-  it("settles a quiet night and applies dawn income before servant upkeep", () => {
-    let state = dispatch(createSchoolBattleState(), {
-      type: "operations.submit_order",
-      orderType: "rest",
-    });
+  it("abstracts AI-only clashes and still settles a quiet player night", () => {
+    let state = dispatch(createSchoolBattleState(), { type: "operations.submit_order", orderType: "rest" });
     state = dispatch(state, { type: "operations.lock_orders" });
     state = dispatch(state, { type: "operations.resolve_night" });
     expect(state.strategy.phase).toBe("night_settlement");
@@ -197,20 +167,13 @@ describe("nightly operation cycle", () => {
   it("produces identical events and state for the same seed and commands", () => {
     const run = () => {
       const initial = createSchoolBattleState();
-      const submitted = processCommand(initial, {
-        type: "operations.submit_order" as const,
-        orderType: "move" as const,
-        destinationId: "school" as const,
-      });
+      const submitted = processCommand(initial, { type: "operations.submit_order" as const, orderType: "move" as const, destinationId: "school" as const });
       if (!submitted.ok) throw new Error(submitted.error.message);
       const locked = processCommand(submitted.state, { type: "operations.lock_orders" as const });
       if (!locked.ok) throw new Error(locked.error.message);
       const resolved = processCommand(locked.state, { type: "operations.resolve_night" as const });
       if (!resolved.ok) throw new Error(resolved.error.message);
-      return {
-        events: [...submitted.events, ...locked.events, ...resolved.events],
-        state: resolved.state,
-      };
+      return { events: [...submitted.events, ...locked.events, ...resolved.events], state: resolved.state };
     };
 
     const first = run();
