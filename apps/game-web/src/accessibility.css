@@ -1,0 +1,9 @@
+:root { font-size: calc(16px * var(--ui-font-scale, 1)); }
+:root[data-high-contrast="true"] body { filter: contrast(1.12); }
+:root[data-high-contrast="true"] button:focus-visible,
+:root[data-high-contrast="true"] input:focus-visible,
+:root[data-high-contrast="true"] select:focus-visible,
+:root[data-high-contrast="true"] textarea:focus-visible { outline: 4px solid #ffe083; outline-offset: 3px; }
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.001ms !important; }

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "base-fuyuki",
+  "version": "1.0.0-prealpha.1",
+  "priority": 0,
+  "routes": [
+    {
+      "id": "tohsaka-route",
+      "title": "远坂路线 · 真名追猎",
+      "description": "依靠情报、投影与有限令咒，在三夜内识破并压制主要威胁。",
+      "playerFactionId": "tohsaka",
+      "homeRegionId": "tohsaka-residence",
+      "objectives": [
+        { "id": "tohsaka-intel", "label": "真名推理", "description": "取得至少两条英灵身份线索。" },
+        { "id": "tohsaka-seal", "label": "保留令咒", "description": "战役结束时至少保留一划令咒。" },
+        { "id": "tohsaka-survive", "label": "契约存续", "description": "凛与Archer存活至第三夜结束。" }
+      ]
+    },
+    {
+      "id": "emiya-route",
+      "title": "卫宫路线 · 守护誓约",
+      "description": "保护Master、争取可信盟友，并让Saber撑过三夜战争。",
+      "playerFactionId": "emiya",
+      "homeRegionId": "emiya-residence",
+      "objectives": [
+        { "id": "emiya-diplomacy", "label": "共同战线", "description": "与至少一个阵营达成停战或联盟。" },
+        { "id": "emiya-encounter", "label": "直面战争", "description": "至少完成一场遭遇。" },
+        { "id": "emiya-survive", "label": "誓约未断", "description": "士郎与Saber存活至第三夜结束。" }
+      ]
+    },
+    {
+      "id": "ryudou-route",
+      "title": "柳洞寺路线 · 工房支配",
+      "description": "强化柳洞寺工房、控制灵脉，并维持Caster阵营的存在。",
+      "playerFactionId": "ryudou",
+      "homeRegionId": "ryudou-temple",
+      "objectives": [
+        { "id": "ryudou-workshop", "label": "大工房", "description": "将柳洞寺工房提升至三级。" },
+        { "id": "ryudou-leyline", "label": "地脉支配", "description": "确保柳洞寺灵脉由己方控制。" },
+        { "id": "ryudou-survive", "label": "阵地存续", "description": "宗一郎与Caster存活至第三夜结束。" }
+      ]
+    }
+  ],
+  "regions": [
+    { "id": "tohsaka-residence", "name": "远坂宅", "x": 85, "y": 145, "connections": ["school", "shopping-street"], "leylineStrength": 2 },
+    { "id": "emiya-residence", "name": "卫宫宅", "x": 105, "y": 315, "connections": ["school", "shopping-street"], "leylineStrength": 1 },
+    { "id": "school", "name": "穗群原学园", "x": 280, "y": 105, "connections": ["tohsaka-residence", "emiya-residence", "shopping-street", "fuyuki-bridge", "ryudou-temple"], "leylineStrength": 1, "encounterId": "school-night" },
+    { "id": "shopping-street", "name": "商店街", "x": 285, "y": 270, "connections": ["tohsaka-residence", "emiya-residence", "school", "fuyuki-bridge", "harbor"], "leylineStrength": 1 },
+    { "id": "fuyuki-bridge", "name": "冬木大桥", "x": 480, "y": 160, "connections": ["school", "shopping-street", "harbor", "church"], "leylineStrength": 2, "encounterId": "bridge-duel" },
+    { "id": "harbor", "name": "港口仓库", "x": 500, "y": 320, "connections": ["shopping-street", "fuyuki-bridge", "church"], "leylineStrength": 2, "encounterId": "harbor-clash" },
+    { "id": "church", "name": "冬木教会", "x": 665, "y": 225, "connections": ["fuyuki-bridge", "harbor", "ryudou-temple"], "leylineStrength": 3 },
+    { "id": "ryudou-temple", "name": "柳洞寺", "x": 655, "y": 65, "connections": ["school", "church"], "leylineStrength": 3, "encounterId": "ryudou-siege" }
+  ],
+  "encounters": [
+    { "id": "school-night", "title": "穗群原学园夜战", "subtitle": "异常结界 · 身份调查", "objective": "在复杂接触中保全Master，并识别敌方从者能力。", "regionId": "school", "playerStart": { "q": 1, "r": 2 }, "enemyStart": { "q": 6, "r": 2 } },
+    { "id": "bridge-duel", "title": "冬木大桥多方对峙", "subtitle": "狭长战线 · 临时同盟", "objective": "利用关系状态控制交战对象，避免被两支阵营同时夹击。", "regionId": "fuyuki-bridge", "playerStart": { "q": 1, "r": 1 }, "enemyStart": { "q": 6, "r": 3 } },
+    { "id": "harbor-clash", "title": "港口仓库混战", "subtitle": "障碍地形 · 三方接触", "objective": "在多方混战中选择攻击目标，并保留撤离路线。", "regionId": "harbor", "playerStart": { "q": 1, "r": 4 }, "enemyStart": { "q": 6, "r": 1 } },
+    { "id": "ryudou-siege", "title": "柳洞寺工房攻防", "subtitle": "结界阵地 · Assassin守门", "objective": "突破Caster工房和Assassin防线，或迫使其接受停战条件。", "regionId": "ryudou-temple", "playerStart": { "q": 1, "r": 3 }, "enemyStart": { "q": 6, "r": 2 } }
+  ],
+  "dialogues": {
+    "campaign.opening": [
+      "圣杯战争的第三夜已经开始。",
+      "每一次移动都会暴露位置，每一次战斗都会泄露真名。"
+    ],
+    "editor.help": [
+      "编辑区域连接和遭遇出生点后，可以直接启动隔离试玩。"
+    ]
+  }
+}

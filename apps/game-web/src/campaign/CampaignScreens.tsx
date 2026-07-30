@@ -1,16 +1,24 @@
 import {
-  CAMPAIGN_ROUTE_DEFINITIONS,
   createNewGameState,
   type CampaignRouteId,
 } from "@grail/core";
-import { gameEngine } from "../game-engine";
-import { hasSavedGame, loadSavedGame } from "../save-game";
 import { useState } from "react";
+import { useBrowserContent } from "../content/browser-content";
+import { gameEngine } from "../game-engine";
+import {
+  getAutosaveSummary,
+  hasAutosave,
+  hasSavedGame,
+  loadLatestAutosave,
+  loadSavedGame,
+} from "../save-game";
 import "./campaign.css";
 
 export function NewGameScreen() {
   const [feedback, setFeedback] = useState<string>();
-  const routes = Object.values(CAMPAIGN_ROUTE_DEFINITIONS);
+  const content = useBrowserContent();
+  const routes = content.pack?.routes.filter(route => isCampaignRouteId(route.id)) ?? [];
+  const autosaves = getAutosaveSummary();
 
   const start = (routeId: CampaignRouteId) => {
     const result = gameEngine.dispatch({ type: "campaign.start", routeId });
@@ -26,15 +34,38 @@ export function NewGameScreen() {
     }
   };
 
+  const recover = () => {
+    try {
+      const savedAt = loadLatestAutosave();
+      setFeedback(savedAt ? `已恢复自动存档：${new Date(savedAt).toLocaleString()}` : "没有可恢复的自动存档");
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "自动存档恢复失败");
+    }
+  };
+
+  if (content.status === "error") {
+    return (
+      <main className="campaign-shell new-game-shell">
+        <section className="campaign-hero content-load-error" role="alert">
+          <p className="eyebrow">CONTENT PACK ERROR</p>
+          <h1>内容包无法启动</h1>
+          <pre>{content.error}</pre>
+          <p>请检查 public/content/base-content.json，修复后刷新浏览器。</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="campaign-shell new-game-shell">
       <section className="campaign-hero">
-        <p className="eyebrow">THREE-NIGHT MINI CAMPAIGN</p>
+        <p className="eyebrow">THREE-NIGHT BROWSER CAMPAIGN</p>
         <h1>Grail Conquest</h1>
-        <p>选择一个Master–Servant阵营，在三夜内完成路线目标。所有命令、外交、战斗和结局均可导出为确定性Replay。</p>
+        <p>选择一个Master–Servant阵营，在三夜内完成路线目标。无需账号或安装，进度会自动保存在当前浏览器。</p>
+        <small>Web Pre‑Alpha · Content {content.pack?.version ?? "loading"}</small>
       </section>
 
-      <section className="route-grid">
+      <section className="route-grid" aria-label="可选战役路线">
         {routes.map(route => (
           <article className={`route-card route-${route.id}`} key={route.id}>
             <p className="eyebrow">{route.id.replace("-route", "").toUpperCase()}</p>
@@ -48,14 +79,21 @@ export function NewGameScreen() {
                 </li>
               ))}
             </ol>
-            <button onClick={() => start(route.id)}>选择该路线</button>
+            <button onClick={() => start(route.id as CampaignRouteId)}>选择该路线</button>
           </article>
         ))}
       </section>
 
       <div className="campaign-secondary-actions">
-        <button disabled={!hasSavedGame()} onClick={load}>继续已有战役</button>
+        <button disabled={!hasSavedGame()} onClick={load}>继续手动存档</button>
+        <button disabled={!hasAutosave()} onClick={recover}>恢复最新自动存档</button>
       </div>
+      {autosaves.length > 0 && (
+        <details className="autosave-summary">
+          <summary>自动存档恢复点 · {autosaves.length}</summary>
+          <ol>{autosaves.map((item, index) => <li key={`${item.savedAt}-${index}`} className={item.valid ? "" : "invalid"}>{item.valid ? new Date(item.savedAt).toLocaleString() : item.savedAt}</li>)}</ol>
+        </details>
+      )}
       {feedback && <p className="campaign-feedback" role="status">{feedback}</p>}
     </main>
   );
@@ -98,4 +136,8 @@ export function CampaignEndingScreen(props: { readonly onOpenReplay: () => void 
       </section>
     </main>
   );
+}
+
+function isCampaignRouteId(value: string): value is CampaignRouteId {
+  return value === "tohsaka-route" || value === "emiya-route" || value === "ryudou-route";
 }

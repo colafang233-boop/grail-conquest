@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
+import { getBrowserSettings, subscribeBrowserSettings } from "../browser-settings";
 import { BattleScene } from "../phaser/BattleScene";
 
 export function GameCanvas() {
@@ -23,8 +24,19 @@ export function GameCanvas() {
       },
     });
 
-    return () => game.destroy(true);
+    const applyMotionPreference = () => {
+      const timeScale = getBrowserSettings().reducedMotion ? 1000 : 1;
+      for (const scene of game.scene.getScenes(true)) scene.tweens.timeScale = timeScale;
+    };
+    const timer = window.setTimeout(applyMotionPreference, 0);
+    const unsubscribe = subscribeBrowserSettings(applyMotionPreference);
+
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+      game.destroy(true);
+    };
   }, []);
 
-  return <div ref={containerRef} className="game-canvas" aria-label="六边格战斗地图" />;
+  return <div ref={containerRef} className="game-canvas" role="application" aria-label="六边格战斗地图。使用战术终端按钮选择移动、攻击或技能。" />;
 }
