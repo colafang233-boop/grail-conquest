@@ -5,12 +5,17 @@ import {
   isOperationsDomainEvent,
   isStrategyDomainEvent,
 } from "./all-events";
-import { evaluateCampaignProgress } from "./campaign";
+import {
+  evaluateCampaignProgress,
+  getCampaignHomeRegion,
+  getSelectedPlayerFaction,
+} from "./campaign";
 import type { CampaignGameCommand } from "./campaign-commands";
 import { executeCampaignCommand } from "./campaign-engine";
 import type { AllGameCommand, AbilityGameCommand, GameCommand } from "./commands";
 import type { DomainError } from "./errors";
 import type { DomainEvent as TacticalDomainEvent } from "./events";
+import { getPlayerFactionId } from "./operations";
 import type { OperationsGameCommand } from "./operations-commands";
 import type { StrategyGameCommand } from "./strategy-commands";
 import type { GameState } from "./state";
@@ -40,6 +45,8 @@ export function processCommand(state: GameState, command: AllGameCommand): Proce
   }
 
   if (isOperationsCommand(command)) {
+    const locationError = validateCampaignOperationLocation(state, command);
+    if (locationError) return failed(state, locationError);
     const execution = executeOperationsCommand(state, command);
     if (!execution.ok) return failed(state, execution.error);
     return finalize(state, execution.events);
@@ -89,6 +96,32 @@ function finalize(before: GameState, baseEvents: readonly AllDomainEvent[], preR
   state = campaignEvents.reduce(applyAllEvent, state);
   events.push(...campaignEvents);
   return { ok: true, state, events };
+}
+
+function validateCampaignOperationLocation(
+  state: GameState,
+  command: OperationsGameCommand,
+): DomainError | undefined {
+  if (command.type !== "operations.submit_order") return undefined;
+  if (command.orderType !== "rest" && command.orderType !== "prepare_workshop") return undefined;
+
+  const playerFactionId = getPlayerFactionId(state);
+  const playerFaction = getSelectedPlayerFaction(state);
+  if (!playerFaction) return { code: "unit_not_found", message: "Player faction is missing" };
+  const currentRegion = state.strategy.regions[playerFaction.regionId];
+  const homeRegionId = getCampaignHomeRegion(state);
+
+  if (command.orderType === "rest" && currentRegion.id !== homeRegionId && currentRegion.id !== "church") {
+    return { code: "strategy_rest_unavailable", message: "Rest requires the campaign home base or the church" };
+  }
+  if (
+    command.orderType === "prepare_workshop" &&
+    currentRegion.id !== homeRegionId &&
+    currentRegion.controlledBy !== playerFactionId
+  ) {
+    return { code: "operations_order_invalid", message: "A workshop requires the campaign home base or a controlled leyline" };
+  }
+  return undefined;
 }
 
 function failed(state: GameState, error: DomainError): ProcessCommandResult {
