@@ -1,10 +1,11 @@
+import type { GameState } from "@grail/core";
 import { lazy, Suspense, useEffect, useState } from "react";
+import "./browser-release.css";
 import { CampaignEndingScreen, NewGameScreen } from "./campaign/CampaignScreens";
 import { gameEngine } from "./game-engine";
 import { useGameSnapshot } from "./hooks/useGameSnapshot";
-import { useScenarioController } from "./useScenarioController";
-import type { GameState } from "@grail/core";
 import "./scenario.css";
+import { useScenarioController } from "./useScenarioController";
 
 const StrategyScreen = lazy(() => import("./strategy/StrategyScreen").then(module => ({ default: module.StrategyScreen })));
 const BattleScreen = lazy(() => import("./screens/BattleScreen").then(module => ({ default: module.BattleScreen })));
