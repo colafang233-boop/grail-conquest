@@ -5,12 +5,12 @@ import {
   LANCER_UNIT_ID,
   RIN_UNIT_ID,
   SABER_UNIT_ID,
-  TOHSAKA_FACTION_ID,
   areFactionsHostile,
   findLegalAbilityTargets,
   findLegalAttackTargets,
   findLegalNoblePhantasmTargets,
   findReachableHexes,
+  getPlayerFactionId,
   hexDistance,
   hexKey,
   type AbilityId,
@@ -21,14 +21,18 @@ import { gameEngine } from "./game-engine";
 export function runEncounterAiTurn(): void {
   let state = gameEngine.getSnapshot().state;
   if (state.mode !== "battle" || state.scenario.phase === "investigation" || state.scenario.phase === "completed") return;
+  const playerFactionId = getPlayerFactionId(state);
   const activeId = state.battle.activeUnitId;
   let active = state.battle.units[activeId];
-  if (!active?.deployed || active.defeated || active.factionId === TOHSAKA_FACTION_ID) return;
+  if (!active?.deployed || active.defeated || active.factionId === playerFactionId) return;
 
   const finishTurn = () => {
     const current = gameEngine.getSnapshot().state;
     const currentUnit = current.battle.units[current.battle.activeUnitId];
-    if (current.mode === "battle" && current.scenario.phase !== "completed" && currentUnit?.deployed && currentUnit.factionId !== TOHSAKA_FACTION_ID) {
+    if (
+      current.mode === "battle" && current.scenario.phase !== "completed" &&
+      currentUnit?.deployed && currentUnit.factionId !== getPlayerFactionId(current)
+    ) {
       gameEngine.dispatch({ type: "battle.end_turn", battleId: current.battle.id, unitId: currentUnit.id });
     }
   };
@@ -50,7 +54,8 @@ export function runEncounterAiTurn(): void {
   }
 
   if (active.noblePhantasm?.phase === "ready") {
-    const legal = findLegalNoblePhantasmTargets(state.battle, active.id).filter(target => areFactionsHostile(state, active!.factionId, target.factionId));
+    const legal = findLegalNoblePhantasmTargets(state.battle, active.id)
+      .filter(target => areFactionsHostile(state, active!.factionId, target.factionId));
     if (legal.some(target => target.id === active?.noblePhantasm?.targetId)) {
       gameEngine.dispatch({ type: "noble_phantasm.release", battleId: state.battle.id, servantId: active.id });
       finishTurn();
