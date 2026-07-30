@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @grail/game-web dev",
     "build": "pnpm -r --if-present build",
+    "simulate": "pnpm --filter @grail/simulation-cli start --",
     "test": "pnpm --filter @grail/core test",
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm typecheck && pnpm test && pnpm build"
