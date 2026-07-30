@@ -2,7 +2,7 @@ name: Deploy GitHub Pages
 
 on:
   push:
-    branches: [main, agent/initialize-ts-game]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -34,8 +34,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build web app
-        run: pnpm --filter @grail/game-web build
+      - name: Build and verify web app
+        run: |
+          pnpm --filter @grail/game-web build
+          pnpm bundle:check
+
+      - name: Write release metadata
+        run: |
+          cat > apps/game-web/dist/release.json <<EOF
+          {
+            "version": "browser-prealpha-1.0",
+            "commit": "${GITHUB_SHA}",
+            "contentPack": "1.0.0-prealpha.1",
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -57,3 +70,14 @@ jobs:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Public URL smoke test
+        run: |
+          URL="${{ steps.deployment.outputs.page_url }}"
+          for attempt in 1 2 3 4 5 6; do
+            if curl --fail --location --silent "$URL" > /tmp/page.html; then
+              break
+            fi
+            sleep 5
+          done
+          grep -q '<div id="root"></div>' /tmp/page.html
