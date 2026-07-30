@@ -8,19 +8,21 @@ import {
 
 export interface GameEngineSnapshot {
   readonly version: number;
+  readonly initialState: GameState;
   readonly state: GameState;
   readonly lastEvents: readonly AllDomainEvent[];
   readonly eventLog: readonly AllDomainEvent[];
-  readonly lastError?: DomainError;
+  readonly lastError?: DomainError | undefined;
 }
 
 export interface DispatchResult {
   readonly ok: boolean;
   readonly events: readonly AllDomainEvent[];
-  readonly error?: DomainError;
+  readonly error?: DomainError | undefined;
 }
 
 export class GameEngine {
+  private initialState: GameState;
   private state: GameState;
   private version = 0;
   private eventLog: readonly AllDomainEvent[] = [];
@@ -28,9 +30,11 @@ export class GameEngine {
   private readonly listeners = new Set<() => void>();
 
   public constructor(initialState: GameState) {
+    this.initialState = initialState;
     this.state = initialState;
     this.snapshot = {
       version: 0,
+      initialState,
       state: initialState,
       lastEvents: [],
       eventLog: [],
@@ -50,6 +54,7 @@ export class GameEngine {
     if (!result.ok) {
       this.snapshot = {
         version: this.version,
+        initialState: this.initialState,
         state: this.state,
         lastEvents: [],
         eventLog: this.eventLog,
@@ -64,6 +69,7 @@ export class GameEngine {
     this.eventLog = [...this.eventLog, ...result.events];
     this.snapshot = {
       version: this.version,
+      initialState: this.initialState,
       state: this.state,
       lastEvents: result.events,
       eventLog: this.eventLog,
@@ -73,17 +79,27 @@ export class GameEngine {
     return { ok: true, events: result.events };
   }
 
-  public restore(state: GameState, eventLog: readonly AllDomainEvent[] = []): void {
+  public restore(
+    state: GameState,
+    eventLog: readonly AllDomainEvent[] = [],
+    initialState: GameState = state,
+  ): void {
+    this.initialState = initialState;
     this.state = state;
     this.eventLog = [...eventLog];
     this.version += 1;
     this.snapshot = {
       version: this.version,
+      initialState: this.initialState,
       state: this.state,
       lastEvents: [],
       eventLog: this.eventLog,
     };
     this.notify();
+  }
+
+  public reset(initialState: GameState): void {
+    this.restore(initialState, [], initialState);
   }
 
   private notify(): void {
