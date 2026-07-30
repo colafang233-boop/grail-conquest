@@ -1,0 +1,32 @@
+.editor-panel { width: min(1180px, 100%); }
+.editor-panel > header p:last-child { color: #9ba9bb; }
+.editor-toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 18px; }
+.editor-toolbar .editor-launch { border-color: #6fae9f; background: #1f4b43; }
+.editor-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.editor-card { padding: 18px; border: 1px solid #344358; border-radius: 14px; background: #0e1724; }
+.editor-section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
+.editor-section-heading h2 { margin: 0; font-size: 1.08rem; }
+.editor-section-heading select { max-width: 260px; }
+.editor-card label { display: grid; gap: 6px; margin-bottom: 12px; color: #bac5d4; font-size: 0.82rem; }
+.editor-card input, .editor-card select, .editor-card textarea { width: 100%; padding: 9px 10px; border: 1px solid #44546a; border-radius: 8px; color: #eef3f8; background: #0a111b; }
+.editor-card textarea { min-height: 90px; resize: vertical; }
+.editor-field-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.editor-spawn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.editor-spawn-grid fieldset { border: 1px solid #35455b; border-radius: 10px; }
+.editor-spawn-grid legend { padding: 0 6px; color: #d7bd7d; }
+.diagnostic-panel { margin-top: 18px; padding: 16px; border: 1px solid #3d4c60; border-radius: 13px; background: #101824; }
+.diagnostic-panel > div { display: flex; justify-content: space-between; gap: 14px; }
+.diagnostic-panel h2 { margin: 0; font-size: 1rem; }
+.diagnostic-panel.valid { border-color: #427a70; }
+.diagnostic-panel.invalid { border-color: #8f4654; }
+.diagnostic-panel ol { display: grid; gap: 10px; padding-left: 20px; }
+.diagnostic-panel li { display: grid; gap: 4px; }
+.diagnostic-panel code { color: #d7bd7d; }
+.diagnostic-panel small { color: #9eacbe; }
+.editor-feedback { padding: 11px; border-radius: 9px; color: #c9e8df; background: #18362f; }
+.editor-raw { margin-top: 16px; }
+.editor-raw summary { cursor: pointer; color: #d7bd7d; }
+.editor-raw pre { max-height: 360px; overflow: auto; padding: 13px; border-radius: 10px; background: #060a10; font-size: 0.72rem; }
+@media (max-width: 840px) { .editor-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .editor-field-row, .editor-spawn-grid { grid-template-columns: 1fr; } .editor-section-heading { align-items: stretch; flex-direction: column; } }
