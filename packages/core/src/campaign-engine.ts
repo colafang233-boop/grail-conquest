@@ -12,37 +12,20 @@ export function executeCampaignCommand(
   state: GameState,
   command: CampaignGameCommand,
 ): CampaignCommandResult {
-  switch (command.type) {
-    case "campaign.start": {
-      if (state.campaign.status === "active") {
-        return failure("campaign_already_active", "Finish or reset the current campaign first");
-      }
-      const route = getCampaignRoute(command.routeId);
-      if (!route) return failure("campaign_route_invalid", `Unknown campaign route ${command.routeId}`);
-      return {
-        ok: true,
-        events: [{
-          type: "campaign.started",
-          sequence: state.sequence + 1,
-          routeId: route.id,
-          playerFactionId: route.playerFactionId,
-        }],
-      };
-    }
-    case "campaign.return_to_setup":
-      if (state.campaign.status !== "completed") {
-        return failure("campaign_not_completed", "Only a completed campaign can return to route selection");
-      }
-      return {
-        ok: true,
-        events: [{
-          type: "campaign.started",
-          sequence: state.sequence + 1,
-          routeId: "tohsaka-route",
-          playerFactionId: state.campaign.selectedPlayerFactionId ?? getCampaignRoute("tohsaka-route").playerFactionId,
-        }],
-      };
+  if (state.campaign.status === "active") {
+    return failure("campaign_already_active", "Finish the current campaign before starting another route");
   }
+  const route = getCampaignRoute(command.routeId);
+  if (!route) return failure("campaign_route_invalid", `Unknown campaign route ${command.routeId}`);
+  return {
+    ok: true,
+    events: [{
+      type: "campaign.started",
+      sequence: state.sequence + 1,
+      routeId: route.id,
+      playerFactionId: route.playerFactionId,
+    }],
+  };
 }
 
 function failure(code: DomainError["code"], message: string): CampaignCommandResult {
