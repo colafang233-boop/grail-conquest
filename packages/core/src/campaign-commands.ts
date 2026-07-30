@@ -5,8 +5,4 @@ export interface StartCampaignCommand {
   readonly routeId: CampaignRouteId;
 }
 
-export interface ReturnToCampaignSetupCommand {
-  readonly type: "campaign.return_to_setup";
-}
-
-export type CampaignGameCommand = StartCampaignCommand | ReturnToCampaignSetupCommand;
+export type CampaignGameCommand = StartCampaignCommand;
